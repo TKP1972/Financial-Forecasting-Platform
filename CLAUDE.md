@@ -8,6 +8,12 @@ Conventions and traps specific to this codebase. Read before changing financial 
 - `packages/engine` — pure financial math, no I/O, no framework. May import `shared` and nothing else.
 - `packages/api` — Fastify + Prisma + PostgreSQL
 - `packages/web` — React 19 + Vite
+- `docs/` — product documentation. Everything here is shippable: architecture, runbook, threat
+  model, engineering policy.
+- `.internal/` — working context, tracked but **never distributed**: cross-project
+  correspondence and anything else you would not hand to a client. Excluded from the Docker
+  build context (verified, not assumed). The test is "would you include it if you shipped this
+  to someone else?" — if no, it goes in `.internal/`, not `docs/`.
 
 Dependency direction is one-way: `web`/`api` → `engine` → `shared`. Do not import `api` from
 `engine`; the engine's testability depends on it having no I/O.

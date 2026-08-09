@@ -17,5 +17,8 @@ docs
 *.md
 !README.md
 
+# Working context for whoever is building this - never part of an image.
+.internal
+
 **/.vscode
 **/.idea
