@@ -101,7 +101,15 @@ value was derived by hand.
 
 End-to-end: `npm run test:e2e` runs the whole set — `smoke-test.ps1` (80 assertions) plus the
 `planning`, `rolling`, `ratecards` and `pilot` suites, then
-`verify-audit-tamper-detection.ps1` (8 assertions). All need the stack running.
+`verify-audit-tamper-detection.ps1` (8 assertions). All need the stack running. Pass suite
+names to run a subset: `node scripts/run-e2e.mjs smoke-test-rolling`.
+
+**Do not chain the suites with `;` in an npm script.** npm runs scripts through `cmd.exe` on
+Windows, where `;` is not a command separator — it was absorbed into the filename and _no
+suite ran at all_, while the error looked like a missing interpreter. `scripts/run-e2e.mjs`
+runs them in-process instead, continues past a failure so one break does not hide the rest,
+and returns an aggregate exit code. The old chain returned only the last suite's status, so
+any earlier failure was silently discarded.
 
 Most suites are idempotent — keep them that way by creating their own fixtures rather than
 mutating seeded state. **`smoke-test-rolling.ps1` is the exception**: it closes periods, so it
