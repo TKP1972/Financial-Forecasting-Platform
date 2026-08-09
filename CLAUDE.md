@@ -40,6 +40,11 @@ exemption, including for ADMIN.
 
 ## Traps that have already bitten
 
+Several of these are now enforced mechanically rather than by memory — `npm run verify` runs
+`check:invariants` (compiled output in `src/`, raw NUL bytes) and ESLint rules
+(`z.coerce.boolean()`, default `Decimal` import) before anything else. A trap that has bitten
+once will bite again; a check that fails the build will not.
+
 - **Query-string booleans.** `z.coerce.boolean()` applies JS truthiness, so `"false"`
   becomes `true`. Use `queryBoolean` from `shared/src/contracts.ts`. Query numbers need
   `z.coerce.number()` — raw `z.number()` rejects every query param.
@@ -72,6 +77,12 @@ exemption, including for ADMIN.
 - **`.env` lives at the repo root only.** The API loads it via `process.loadEnvFile`; Prisma
   CLI commands run from the root with an explicit `--schema` path. Containers set
   `SKIP_DOTENV=true`.
+- **Never embed a raw NUL byte in source.** `computeAuditHash` used a literal `0x00` as its
+  field delimiter. It renders as a space everywhere, so a normalising save would silently
+  substitute `0x20` — a delimiter that _does_ occur in field values — destroying the collision
+  resistance and invalidating every stored hash. `grep` also skipped the file as binary and
+  git stored it as an undiffable blob. Write `'\u0000'`; it is identical at runtime.
+  Enforced by `check:invariants`.
 - **Rebuild the libs after changing a `shared` or `engine` export.** `api` typechecks against
   `packages/shared/dist/*.d.ts`, not the sources, so a field added to a shared interface is
   invisible to it until `npm run build:libs` runs. The symptom is a lie: `tsc` reports the
