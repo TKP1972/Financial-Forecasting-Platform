@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run db:reset)",
+      "Bash(npm run db:seed)",
+      "Bash(npm run db:deploy)",
+      "Bash(npm run db:generate)"
+    ]
+  }
+}
