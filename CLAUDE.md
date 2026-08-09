@@ -108,6 +108,24 @@ mutating seeded state. **`smoke-test-rolling.ps1` is the exception**: it closes 
 consumes the seeded cycle's open periods and `exit 1`s once fewer than two remain. It needs a
 fresh `npm run db:reset` to run again, and in CI it reads as a failure rather than a skip.
 
+**Route tests use `app.inject()`, not a running server.** `packages/api/src/**/*.test.ts` build
+the real Fastify app in-process — real router, real auth plugin, real error mapper — and fake
+only the database, by `vi.mock`-ing `../db.js`. No port, no Docker, no seed data. Helpers live
+in `packages/api/src/test-support/`; the fake environment is a Vitest `setupFile`, because
+`config.ts` validates and freezes `process.env` at import time.
+
+Assert the **error code**, not just the status. Several distinct controls all answer 403
+(`FORBIDDEN` for role seniority, `SEPARATION_OF_DUTIES`, `DELEGATED_AUTHORITY_EXCEEDED`), so a
+bare `expect(403)` will happily pass for the wrong reason — that mistake was made and caught
+while writing these. Assert too that the guard was reached _before_ any write:
+`expect(db.$transaction).not.toHaveBeenCalled()`.
+
+`api` has its own coverage gate, `npm run test:coverage:api`, via
+`vitest.coverage-api.config.ts`. It is a **ratchet set just under current coverage**, not a
+target — raise it as suites land, never lower it to make a build pass. It is separate from the
+main run because glob-scoped thresholds did not reliably exempt matched files from the 90/85
+engine gate.
+
 Vitest is capped at 4 worker threads; each worker loads the whole engine and the Monte Carlo
 suites allocate large typed arrays.
 
