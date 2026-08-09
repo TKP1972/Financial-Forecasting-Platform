@@ -53,10 +53,10 @@ export default defineConfig({
        * never lower them to make a build pass.
        */
       thresholds: {
-        lines: 10,
-        functions: 22,
-        branches: 75,
-        statements: 10,
+        lines: 13,
+        functions: 27,
+        branches: 78,
+        statements: 13,
       },
     },
   },

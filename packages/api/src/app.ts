@@ -57,7 +57,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     // the largest legitimate body, and 8 MB covers a very large one.
     bodyLimit: 8 * 1024 * 1024,
     trustProxy: true,
-    disableRequestLogging: false,
+    // disableRequestLogging is not set: false is already the default, and
+    // passing it explicitly triggered FSTDEP023 on every boot. The replacement
+    // (the logController option) would only be needed to change the behaviour,
+    // which we do not - request logging stays on.
   });
 
   await app.register(helmet, {
