@@ -29,7 +29,39 @@ export default tseslint.config(
       eqeqeq: ['error', 'always', { null: 'ignore' }],
       'no-console': 'off',
       // Money must never be a float. Guardrail, not a substitute for review.
-      'no-restricted-globals': ['error', { name: 'parseFloat', message: 'Use Money/Decimal helpers from @ffp/shared instead of parseFloat for monetary values.' }],
+      'no-restricted-globals': [
+        'error',
+        {
+          name: 'parseFloat',
+          message:
+            'Use Money/Decimal helpers from @ffp/shared instead of parseFloat for monetary values.',
+        },
+      ],
+      // Each of the following is a trap recorded in CLAUDE.md that has already
+      // cost real debugging time. A documented convention decays; a lint rule
+      // does not.
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'decimal.js',
+              importNames: ['default'],
+              message:
+                "Use the named import: import { Decimal } from 'decimal.js'. Under NodeNext the default import resolves to the module namespace, not the class.",
+            },
+          ],
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.object.object.name='z'][callee.object.property.name='coerce'][callee.property.name='boolean']",
+          message:
+            'z.coerce.boolean() applies JS truthiness, so the string "false" becomes true. Use queryBoolean from @ffp/shared.',
+        },
+      ],
     },
   },
   {
@@ -37,6 +69,18 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       'no-restricted-globals': 'off',
+    },
+  },
+  {
+    // Repo tooling runs on Node directly rather than through the TypeScript
+    // build, so it needs the Node globals declared.
+    files: ['scripts/**/*.mjs', '*.config.js'],
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        URL: 'readonly',
+      },
     },
   },
   prettier,

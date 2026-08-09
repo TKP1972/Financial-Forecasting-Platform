@@ -6,6 +6,7 @@ import {
   AppError,
   FORECAST_METHODS,
   PERIODS_PER_YEAR,
+  queryBoolean,
   toMoneyString,
   type PeriodType,
 } from '@ffp/shared';
@@ -72,7 +73,7 @@ export async function registerRollingRoutes(app: FastifyInstance): Promise<void>
         .object({
           businessUnitId: z.string().optional(),
           accountId: z.string().optional(),
-          includeSuperseded: z.coerce.boolean().default(false),
+          includeSuperseded: queryBoolean.default(false),
         })
         .parse(request.query);
 

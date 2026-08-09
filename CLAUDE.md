@@ -40,6 +40,11 @@ exemption, including for ADMIN.
 
 ## Traps that have already bitten
 
+Several of these are now enforced mechanically rather than by memory — `npm run verify` runs
+`check:invariants` (compiled output in `src/`, raw NUL bytes) and ESLint rules
+(`z.coerce.boolean()`, default `Decimal` import) before anything else. A trap that has bitten
+once will bite again; a check that fails the build will not.
+
 - **Query-string booleans.** `z.coerce.boolean()` applies JS truthiness, so `"false"`
   becomes `true`. Use `queryBoolean` from `shared/src/contracts.ts`. Query numbers need
   `z.coerce.number()` — raw `z.number()` rejects every query param.
@@ -72,6 +77,12 @@ exemption, including for ADMIN.
 - **`.env` lives at the repo root only.** The API loads it via `process.loadEnvFile`; Prisma
   CLI commands run from the root with an explicit `--schema` path. Containers set
   `SKIP_DOTENV=true`.
+- **Never embed a raw NUL byte in source.** `computeAuditHash` used a literal `0x00` as its
+  field delimiter. It renders as a space everywhere, so a normalising save would silently
+  substitute `0x20` — a delimiter that _does_ occur in field values — destroying the collision
+  resistance and invalidating every stored hash. `grep` also skipped the file as binary and
+  git stored it as an undiffable blob. Write `'\u0000'`; it is identical at runtime.
+  Enforced by `check:invariants`.
 - **Rebuild the libs after changing a `shared` or `engine` export.** `api` typechecks against
   `packages/shared/dist/*.d.ts`, not the sources, so a field added to a shared interface is
   invisible to it until `npm run build:libs` runs. The symptom is a lie: `tsc` reports the
@@ -90,12 +101,38 @@ value was derived by hand.
 
 End-to-end: `npm run test:e2e` runs the whole set — `smoke-test.ps1` (80 assertions) plus the
 `planning`, `rolling`, `ratecards` and `pilot` suites, then
-`verify-audit-tamper-detection.ps1` (8 assertions). All need the stack running.
+`verify-audit-tamper-detection.ps1` (8 assertions). All need the stack running. Pass suite
+names to run a subset: `node scripts/run-e2e.mjs smoke-test-rolling`.
+
+**Do not chain the suites with `;` in an npm script.** npm runs scripts through `cmd.exe` on
+Windows, where `;` is not a command separator — it was absorbed into the filename and _no
+suite ran at all_, while the error looked like a missing interpreter. `scripts/run-e2e.mjs`
+runs them in-process instead, continues past a failure so one break does not hide the rest,
+and returns an aggregate exit code. The old chain returned only the last suite's status, so
+any earlier failure was silently discarded.
 
 Most suites are idempotent — keep them that way by creating their own fixtures rather than
 mutating seeded state. **`smoke-test-rolling.ps1` is the exception**: it closes periods, so it
 consumes the seeded cycle's open periods and `exit 1`s once fewer than two remain. It needs a
 fresh `npm run db:reset` to run again, and in CI it reads as a failure rather than a skip.
+
+**Route tests use `app.inject()`, not a running server.** `packages/api/src/**/*.test.ts` build
+the real Fastify app in-process — real router, real auth plugin, real error mapper — and fake
+only the database, by `vi.mock`-ing `../db.js`. No port, no Docker, no seed data. Helpers live
+in `packages/api/src/test-support/`; the fake environment is a Vitest `setupFile`, because
+`config.ts` validates and freezes `process.env` at import time.
+
+Assert the **error code**, not just the status. Several distinct controls all answer 403
+(`FORBIDDEN` for role seniority, `SEPARATION_OF_DUTIES`, `DELEGATED_AUTHORITY_EXCEEDED`), so a
+bare `expect(403)` will happily pass for the wrong reason — that mistake was made and caught
+while writing these. Assert too that the guard was reached _before_ any write:
+`expect(db.$transaction).not.toHaveBeenCalled()`.
+
+`api` has its own coverage gate, `npm run test:coverage:api`, via
+`vitest.coverage-api.config.ts`. It is a **ratchet set just under current coverage**, not a
+target — raise it as suites land, never lower it to make a build pass. It is separate from the
+main run because glob-scoped thresholds did not reliably exempt matched files from the 90/85
+engine gate.
 
 Vitest is capped at 4 worker threads; each worker loads the whole engine and the Monte Carlo
 suites allocate large typed arrays.

@@ -12,6 +12,10 @@ export default defineConfig({
     environment: 'node',
     include: ['packages/*/src/**/*.{test,spec}.ts', 'packages/*/tests/**/*.{test,spec}.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**'],
+    // config.ts validates and freezes process.env at import time, so the API's
+    // fake environment has to be in place before any test module loads. Harmless
+    // for engine and shared, which read no environment at all.
+    setupFiles: ['packages/api/src/test-support/setup-env.ts'],
     reporters: ['default'],
     // Each worker loads the whole engine, and the Monte Carlo suites allocate
     // large typed arrays. Unbounded parallelism exhausts memory on a normal
@@ -25,6 +29,10 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'lcov', 'html'],
       reportsDirectory: './coverage',
+      // engine and shared only. The api floor is enforced separately, by
+      // vitest.coverage-api.config.ts - glob-scoped thresholds in a single run
+      // did not reliably exempt the matched files from the global gate, and a
+      // second explicit config is clearer than one that silently does nothing.
       include: ['packages/engine/src/**/*.ts', 'packages/shared/src/**/*.ts'],
       exclude: ['**/*.test.ts', '**/index.ts', '**/types.ts', '**/*.d.ts'],
       thresholds: {
