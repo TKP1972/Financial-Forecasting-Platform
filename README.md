@@ -16,10 +16,14 @@ every number defensible after the fact.
 
 ```bash
 git clone <repo> && cd Financial-Forecasting-Platform
-cp .env.example .env          # then set JWT_SECRET and AUDIT_HASH_SALT to real values
+node scripts/init-env.mjs     # writes .env with generated secrets, prints the admin password
 npm install
 npm run stack:up              # builds and starts postgres + api + web
 ```
+
+`init-env.mjs` exists because the API refuses to boot in production with any placeholder
+credential still in place — four of them, not two. Copying `.env.example` by hand and changing
+only the obvious two produces a stack that will not start.
 
 Open **http://localhost:8080**.
 
@@ -292,15 +296,15 @@ report and a leadership pack — and budget and actuals join on the same period 
 ## Testing
 
 ```bash
-npm test                  # 773 unit tests
+npm test                  # 1059 unit tests
 npm run test:coverage     # gated at 90% lines / 85% branches on the engine
 npm run verify            # format + lint + typecheck + test
 pwsh ./scripts/smoke-test.ps1                        # 80 end-to-end API assertions
 pwsh ./scripts/verify-audit-tamper-detection.ps1     # 8 tamper-detection assertions
 ```
 
-Current: **773 unit tests**, 97.7% statement and 95.0% branch coverage across the engine and
-shared packages, plus 88 end-to-end assertions against a running stack.
+Current: **1059 unit tests**, 97.52% statement and 93.83% branch coverage across the engine
+and shared packages, plus 223 end-to-end assertions across six suites against a running stack.
 
 The unit tests assert independently hand-computed expected values rather than re-running the
 implementation to produce them — a tautological test on financial math is worth nothing.
@@ -329,17 +333,25 @@ All configuration is environment-based and validated at boot — a missing or we
 fails the process immediately rather than surfacing later as a subtle auth bug. See
 `.env.example` for the full set.
 
-Two values have no safe default and must be set:
+**Four values have no safe default** and are rejected in production while they still hold the
+value shipped in `.env.example`:
 
 - `JWT_SECRET` — signs access tokens (32+ chars)
 - `AUDIT_HASH_SALT` — binds the audit chain to this deployment. **Rotating it invalidates
   verification of all historical entries.**
+- `POSTGRES_PASSWORD` — the example value is a known string
+- `SEED_ADMIN_PASSWORD` — the seeded administrator can approve budgets, so a known password
+  here is a known credential on a privileged account
+
+`node scripts/init-env.mjs` generates all four. To do it by hand:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 ```
 
-The stack refuses to start in production with placeholder secrets still in place.
+The stack refuses to start in production with any of them still at the example value. This is
+deliberate and is checked by `packages/api/src/config.test.ts`, which reads `.env.example` and
+fails if a credential there is not one the guard recognises.
 
 > **Note:** the database is published on host port **55432**, not 5432, so it does not
 > collide with a PostgreSQL already installed on the machine. Inside the compose network the
