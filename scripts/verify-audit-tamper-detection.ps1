@@ -30,8 +30,21 @@ function Psql($sql) { $sql | docker exec -i $container psql -U $dbUser -d $dbNam
 
 Write-Host "`n== Audit chain tamper detection ==" -ForegroundColor Cyan
 
-$login = Invoke-RestMethod -Uri "$base/auth/login" -Method Post -ContentType 'application/json' `
-  -Body (@{ email = $email; password = $password } | ConvertTo-Json)
+# POST /auth/login is rate-limited to 10/minute. This suite runs last, after
+# five others have each logged in several users, so it is the one most likely
+# to arrive with the budget already spent - and it was the only script without
+# a backoff, which turned a full run into a false failure. Treating 429 as a
+# failure is explicitly against the convention in CLAUDE.md.
+function Login($email, $password) {
+  $body = @{ email = $email; password = $password } | ConvertTo-Json
+  for ($i = 0; $i -lt 6; $i++) {
+    try { return Invoke-RestMethod -Uri "$base/auth/login" -Method Post -Body $body -ContentType 'application/json' }
+    catch { if ($_.Exception.Response.StatusCode.value__ -eq 429) { Start-Sleep -Seconds 15; continue }; throw }
+  }
+  throw "login kept hitting the rate limit"
+}
+
+$login = Login $email $password
 $headers = @{ Authorization = "Bearer $($login.accessToken)" }
 
 # 1. Baseline: the chain must be intact before we touch anything.

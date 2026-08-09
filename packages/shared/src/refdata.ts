@@ -19,7 +19,13 @@
  *   - a cycle in the hierarchy is an error (a unit cannot be its own ancestor)
  *   - nothing is ever deleted; disappearance from the file means nothing
  */
-import { ACCOUNT_TYPES, COST_BEHAVIOURS, COST_CATEGORIES, SPEND_CATEGORIES } from './domain.js';
+import {
+  ACCOUNT_TYPES,
+  COST_BEHAVIOURS,
+  COST_CATEGORIES,
+  DEFAULT_CURRENCY,
+  SPEND_CATEGORIES,
+} from './domain.js';
 
 // --------------------------------------------------------------------------
 // CSV
@@ -252,7 +258,7 @@ export function planBusinessUnitImport(
       name,
       parentCode,
       costCentre: (record.costCentre ?? '').trim() || null,
-      currency: ((record.currency ?? '').trim() || 'USD').toUpperCase(),
+      currency: ((record.currency ?? '').trim() || DEFAULT_CURRENCY).toUpperCase(),
       isActive: parseFlag(record.isActive, row, 'isActive', issues),
     });
   });

@@ -1,4 +1,5 @@
 import {
+  DEFAULT_CURRENCY,
   formatMoney,
   formatPercent,
   type MoneyInput,
@@ -16,7 +17,7 @@ export function money(
   options: { currency?: string; compact?: boolean; accounting?: boolean; decimals?: number } = {},
 ): string {
   if (value === null || value === undefined || value === '') return '—';
-  const { currency = 'USD', compact = false, accounting = true, decimals } = options;
+  const { currency = DEFAULT_CURRENCY, compact = false, accounting = true, decimals } = options;
   try {
     return formatMoney(value, {
       currency,
@@ -34,7 +35,7 @@ export function money(
 }
 
 /** Whole-currency-unit variant for dense tables. */
-export function money0(value: MoneyInput | null | undefined, currency = 'USD'): string {
+export function money0(value: MoneyInput | null | undefined, currency = DEFAULT_CURRENCY): string {
   return money(value, { currency, decimals: 0 });
 }
 

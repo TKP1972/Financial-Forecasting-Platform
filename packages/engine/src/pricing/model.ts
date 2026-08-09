@@ -11,6 +11,7 @@
  */
 import {
   CalculationError,
+  DEFAULT_CURRENCY,
   Decimal,
   add,
   escalationFactor,
@@ -340,7 +341,7 @@ export function buildPricingModel(input: PricingModelInput): PricingResult {
   return {
     name: input.name,
     contractType: input.contractType,
-    currency: input.currency ?? 'USD',
+    currency: input.currency ?? DEFAULT_CURRENCY,
     years: yearResults,
     totals,
     margin,

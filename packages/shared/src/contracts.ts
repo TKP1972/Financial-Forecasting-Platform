@@ -133,7 +133,7 @@ export const createBusinessUnitSchema = z.object({
   name: z.string().min(1).max(160),
   parentId: cuid.nullable().optional(),
   costCentre: z.string().max(32).optional(),
-  currency: z.string().length(3).default('USD'),
+  currency: z.string().length(3).optional(),
   ownerId: cuid.nullable().optional(),
 });
 export type CreateBusinessUnitInput = z.infer<typeof createBusinessUnitSchema>;
@@ -161,7 +161,7 @@ export const createBudgetCycleSchema = z
     opensAt: isoDate,
     submissionDeadline: isoDate,
     approvalDeadline: isoDate,
-    baseCurrency: z.string().length(3).default('USD'),
+    baseCurrency: z.string().length(3).optional(),
     guidanceNotes: z.string().max(20000).optional(),
   })
   .refine((v) => new Date(v.opensAt) < new Date(v.submissionDeadline), {
@@ -229,7 +229,7 @@ export const createBudgetSchema = z.object({
   cycleId: cuid,
   businessUnitId: cuid,
   name: z.string().min(1).max(160),
-  currency: z.string().length(3).default('USD'),
+  currency: z.string().length(3).optional(),
   lines: z.array(budgetLineSchema).max(2000).default([]),
 });
 export type CreateBudgetInput = z.infer<typeof createBudgetSchema>;
@@ -353,7 +353,7 @@ export const pricingModelSchema = z.object({
   pursuitId: cuid.optional(),
   name: z.string().min(1).max(160),
   contractType: z.enum(CONTRACT_TYPES),
-  currency: z.string().length(3).default('USD'),
+  currency: z.string().length(3).optional(),
   years: z.number().int().min(1).max(10),
   labour: z.array(labourLineSchema).max(500).default([]),
   directCosts: z.array(directCostLineSchema).max(500).default([]),

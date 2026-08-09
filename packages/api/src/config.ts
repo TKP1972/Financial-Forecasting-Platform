@@ -9,6 +9,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
+import { DEFAULT_CURRENCY } from '@ffp/shared';
 
 /**
  * Load the repo-root .env when running outside a container.
@@ -71,6 +72,18 @@ const envSchema = z.object({
   JWT_REFRESH_TTL: z.coerce.number().int().min(300).default(604800),
 
   AUDIT_HASH_SALT: z.string().min(32, 'AUDIT_HASH_SALT must be at least 32 characters'),
+
+  /**
+   * Currency applied to records that do not state one: business units, budget
+   * cycles, budgets, rate cards and pricing models.
+   *
+   * One deployment-level decision, replacing what used to be nine independent
+   * `'USD'` literals across the schema, the contracts and the engine. It is not
+   * an FX setting - the platform stores amounts in the currency they were
+   * entered in and does not translate between them (see architecture.md). This
+   * only decides what a record gets when the caller says nothing.
+   */
+  BASE_CURRENCY: z.string().length(3).default(DEFAULT_CURRENCY),
 
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
   RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(300),

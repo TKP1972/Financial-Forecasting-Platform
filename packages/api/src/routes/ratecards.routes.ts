@@ -11,6 +11,7 @@ import {
   type RateCardEntry,
 } from '@ffp/engine';
 import { z } from 'zod';
+import { config } from '../config.js';
 import { prisma } from '../db.js';
 import { requireUser } from '../plugins/auth.plugin.js';
 import { appendAuditEntry } from '../services/audit.service.js';
@@ -126,7 +127,7 @@ export async function registerRateCardRoutes(app: FastifyInstance): Promise<void
           .regex(/^[A-Z0-9_-]+$/, 'Use uppercase letters, digits, - or _'),
         name: z.string().min(1).max(160),
         description: z.string().max(2000).optional(),
-        currency: z.string().length(3).default('USD'),
+        currency: z.string().length(3).optional(),
         entries: z.array(entrySchema).max(2000).default([]),
       })
       .parse(request.body);
@@ -146,7 +147,7 @@ export async function registerRateCardRoutes(app: FastifyInstance): Promise<void
         code: input.code,
         name: input.name,
         description: input.description ?? null,
-        currency: input.currency,
+        currency: input.currency ?? config.BASE_CURRENCY,
         createdById: actor.id,
         entries: {
           create: input.entries.map((e) => ({

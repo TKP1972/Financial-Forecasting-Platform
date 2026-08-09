@@ -100,6 +100,25 @@ export type BudgetMethod = (typeof BUDGET_METHODS)[number];
 // Chart of accounts
 // --------------------------------------------------------------------------
 
+/**
+ * Last-resort currency when nothing else states one.
+ *
+ * This is the *only* place a currency literal belongs. It used to appear
+ * independently in five Prisma columns, four Zod schemas, the pricing model
+ * builder and the money formatter - which is not one decision, it is the same
+ * accident repeated nine times, and it made "what currency is this platform in"
+ * a question with nine answers.
+ *
+ * A deployment sets `BASE_CURRENCY` and the API applies it to every record it
+ * creates. This constant is what that setting falls back to, so changing it here
+ * changes nothing about a configured deployment - it only moves the default for
+ * one that has said nothing.
+ *
+ * ISO 4217 alpha-3. The list itself is not ours to maintain: validation is a
+ * length-3 check, and anything stricter belongs to `Intl`.
+ */
+export const DEFAULT_CURRENCY = 'USD';
+
 export const ACCOUNT_TYPES = ['REVENUE', 'COGS', 'OPEX', 'CAPEX', 'HEADCOUNT', 'OTHER'] as const;
 export type AccountType = (typeof ACCOUNT_TYPES)[number];
 

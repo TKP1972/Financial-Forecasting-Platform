@@ -38,8 +38,29 @@ const POOL_ORDER: Record<BurdenPool, number> = BURDEN_POOLS.reduce(
 );
 
 /**
- * Conventional bases, matching standard cost-accounting practice.
- * Overridable per model - some organisations run a single combined pool.
+ * Conventional bases. Overridable per model - some organisations run a single
+ * combined pool, and some omit pools entirely.
+ *
+ * FRINGE, OVERHEAD, MATERIAL_HANDLING and GA are ordinary absorption costing,
+ * taught in every management-accounting syllabus and used worldwide. Nothing
+ * about them is jurisdictional.
+ *
+ * **COM is different, and this comment used to say otherwise.** Applying a
+ * cost-of-money burden to a cost base is the Facilities Capital Cost of Money
+ * pattern from US federal cost accounting. Commercial cost accounting does not
+ * absorb interest into a cost base at all - it records it below the line. Cost
+ * of money as an internal charge does exist commercially (EVA, transfer
+ * pricing), but not as a pool over direct labour inside a price build-up.
+ *
+ * A commercial user should **omit the COM pool**, not re-rate it. Leaving it at
+ * a zero rate would still show a line on the build-up that their accountants
+ * would not recognise.
+ *
+ * The wider constraint this sits inside is commercial, not legal: the whole
+ * module assumes cost-plus pricing with ordered absorption and fee on a burdened
+ * base. It suits contractors and professional services in any jurisdiction, and
+ * suits a market-priced business poorly in all of them. See
+ * docs/localisation-policy.md.
  */
 export const STANDARD_BURDEN_BASES: Record<BurdenPool, BurdenBaseElement[]> = {
   FRINGE: ['DIRECT_LABOUR'],

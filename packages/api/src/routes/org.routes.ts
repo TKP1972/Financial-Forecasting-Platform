@@ -11,6 +11,7 @@ import {
   strategicObjectiveSchema,
 } from '@ffp/shared';
 import { z } from 'zod';
+import { config } from '../config.js';
 import { prisma } from '../db.js';
 import { requireUser } from '../plugins/auth.plugin.js';
 import { appendAuditEntry } from '../services/audit.service.js';
@@ -87,7 +88,7 @@ export async function registerOrgRoutes(app: FastifyInstance): Promise<void> {
           name: input.name,
           parentId: input.parentId ?? null,
           costCentre: input.costCentre ?? null,
-          currency: input.currency,
+          currency: input.currency ?? config.BASE_CURRENCY,
           ownerId: input.ownerId ?? null,
         },
       });

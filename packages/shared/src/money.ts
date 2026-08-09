@@ -11,6 +11,7 @@
 // Named import, not default: under NodeNext resolution decimal.js's default
 // export resolves to the module namespace rather than the class.
 import { Decimal } from 'decimal.js';
+import { DEFAULT_CURRENCY } from './domain.js';
 
 /** 28 significant digits comfortably covers currency amounts and rate chains. */
 Decimal.set({
@@ -349,7 +350,10 @@ const SCALE_DIVISORS: Record<NonNullable<FormatMoneyOptions['scaleUnit']>, [numb
 
 export function formatMoney(value: MoneyInput, options: FormatMoneyOptions = {}): string {
   const {
-    currency = 'USD',
+    currency = DEFAULT_CURRENCY,
+    // Presentation locale, distinct from the currency: a euro amount shown to a
+    // German reader is the same money formatted differently. Callers that know
+    // the reader should pass theirs; this is only the fallback.
     locale = 'en-US',
     scaleUnit = 'none',
     minimumFractionDigits = 2,

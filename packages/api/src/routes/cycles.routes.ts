@@ -14,6 +14,7 @@ import {
   budgetAssumptionSchema,
 } from '@ffp/shared';
 import { z } from 'zod';
+import { config } from '../config.js';
 import { prisma } from '../db.js';
 import { requireUser } from '../plugins/auth.plugin.js';
 import { appendAuditEntry } from '../services/audit.service.js';
@@ -110,7 +111,7 @@ export async function registerCycleRoutes(app: FastifyInstance): Promise<void> {
         opensAt: new Date(input.opensAt),
         submissionDeadline: new Date(input.submissionDeadline),
         approvalDeadline: new Date(input.approvalDeadline),
-        baseCurrency: input.baseCurrency,
+        baseCurrency: input.baseCurrency ?? config.BASE_CURRENCY,
         guidanceNotes: input.guidanceNotes ?? null,
       },
     });

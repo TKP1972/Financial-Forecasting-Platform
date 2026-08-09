@@ -22,6 +22,7 @@ import {
 } from '@ffp/engine';
 import { z } from 'zod';
 import { registerRateCardRoutes } from './ratecards.routes.js';
+import { config } from '../config.js';
 import { prisma } from '../db.js';
 import { requireUser } from '../plugins/auth.plugin.js';
 import { appendAuditEntry } from '../services/audit.service.js';
@@ -32,7 +33,7 @@ function toEngineInput(input: z.infer<typeof pricingModelSchema>): PricingModelI
   return {
     name: input.name,
     contractType: input.contractType,
-    currency: input.currency,
+    currency: input.currency ?? config.BASE_CURRENCY,
     years: input.years,
     labour: input.labour.map((line) => ({
       labourCategory: line.labourCategory,
@@ -193,7 +194,7 @@ export async function registerPricingRoutes(app: FastifyInstance): Promise<void>
           pursuitId: input.pursuitId ?? null,
           name: input.name,
           contractType: input.contractType as never,
-          currency: input.currency,
+          currency: input.currency ?? config.BASE_CURRENCY,
           years: input.years,
           input: input as never,
           result: JSON.parse(JSON.stringify(result)) as never,
