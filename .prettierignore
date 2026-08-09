@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+playwright-report
+test-results
+package-lock.json
+packages/api/prisma/migrations
+
+# Prettier has no PowerShell parser
+scripts/*.ps1

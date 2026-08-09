@@ -1,0 +1,133 @@
+name: ffp
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ffp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ffp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ffp_local_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-ffp}
+    ports:
+      # 55432 on the host, not 5432, so the stack does not collide with a
+      # PostgreSQL already installed on the machine. Inside this network the
+      # API still connects to postgres:5432.
+      - '${POSTGRES_PORT:-55432}:5432'
+    volumes:
+      - ffp-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-ffp} -d ${POSTGRES_DB:-ffp}']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  # One-shot: applies migrations and seeds, then exits. The API waits for it to
+  # complete successfully, so the schema is always in place before traffic.
+  migrate:
+    # Identical to the api image. Naming it explicitly means Docker builds it
+    # once and both services reuse it, rather than building the same context
+    # twice in parallel.
+    image: ffp-api:latest
+    container_name: ffp-migrate
+    restart: 'no'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      SKIP_DOTENV: 'true'
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ffp}:${POSTGRES_PASSWORD:-ffp_local_dev_password}@postgres:5432/${POSTGRES_DB:-ffp}?schema=public
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@ffp.local}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-Adm1n!Local2026}
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - >
+        npx prisma migrate deploy --schema packages/api/prisma/schema.prisma &&
+        node packages/api/dist/seed.js
+
+  api:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    image: ffp-api:latest
+    container_name: ffp-api
+    restart: unless-stopped
+    # Docker's init reaps zombies and forwards SIGTERM to the app, so the
+    # graceful shutdown handler runs instead of the process being killed.
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      API_HOST: 0.0.0.0
+      API_PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ffp}:${POSTGRES_PASSWORD:-ffp_local_dev_password}@postgres:5432/${POSTGRES_DB:-ffp}?schema=public
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in .env}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-900}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-604800}
+      AUDIT_HASH_SALT: ${AUDIT_HASH_SALT:?AUDIT_HASH_SALT must be set in .env}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@ffp.local}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-Adm1n!Local2026}
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      NOTIFICATION_TRANSPORT: ${NOTIFICATION_TRANSPORT:-log}
+      NOTIFICATION_DISPATCH_SECONDS: ${NOTIFICATION_DISPATCH_SECONDS:-60}
+      DEADLINE_SCAN_SECONDS: ${DEADLINE_SCAN_SECONDS:-3600}
+      PASSWORD_RESET_EXPOSE_TOKEN: ${PASSWORD_RESET_EXPOSE_TOKEN:-false}
+    ports:
+      - '${API_PORT:-4000}:4000'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4000/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 25s
+
+  web:
+    build:
+      context: .
+      dockerfile: packages/web/Dockerfile
+    container_name: ffp-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    # nginx proxies /api to the api service, so the whole app is served from a
+    # single origin on these ports.
+    ports:
+      - '${WEB_PORT:-8080}:80'
+      - '${WEB_TLS_PORT:-8443}:443'
+    volumes:
+      # Certificates are machine-specific and must never be baked into the
+      # image, so they are mounted. If the directory holds server.crt and
+      # server.key the container serves HTTPS and redirects 80 to 443;
+      # otherwise it serves plain HTTP and says so in the log.
+      #
+      # Generate a development pair with: pwsh ./scripts/generate-dev-cert.ps1
+      - ./docker/tls:/etc/nginx/certs:ro
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || wget -qO- --no-check-certificate https://127.0.0.1/ >/dev/null 2>&1',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+volumes:
+  ffp-pgdata:
+    name: ffp-pgdata

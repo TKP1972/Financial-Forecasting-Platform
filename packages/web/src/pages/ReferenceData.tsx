@@ -1,0 +1,274 @@
+import { useMutation } from '@tanstack/react-query';
+import { useRef, useState } from 'react';
+import { Card, EmptyState, ErrorState, InlineNote, PageHeader, SelectField } from '@/components/ui';
+import { apiRequest, downloadFile } from '@/lib/api';
+import { useHasPermission } from '@/lib/permissions';
+
+type Entity = 'business-units' | 'accounts';
+
+interface ImportIssue {
+  row: number;
+  field?: string;
+  message: string;
+}
+
+interface ImportSummary {
+  entity: string;
+  applied: boolean;
+  created: number;
+  updated: number;
+  unchanged: number;
+  issues: ImportIssue[];
+  preview: Array<{ code: string; action: 'create' | 'update'; changed?: string[] }>;
+}
+
+const ENTITY_LABEL: Record<Entity, string> = {
+  'business-units': 'Business units',
+  accounts: 'Chart of accounts',
+};
+
+const COLUMNS: Record<Entity, string> = {
+  'business-units': 'code, name, parentCode, costCentre, currency, isActive',
+  accounts:
+    'code, name, type, category, parentCode, spendCategory, costBehaviour, variableShare, isActive',
+};
+
+export default function ReferenceData() {
+  const has = useHasPermission();
+  const [entity, setEntity] = useState<Entity>('business-units');
+  const [csv, setCsv] = useState('');
+  const [result, setResult] = useState<ImportSummary | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  const run = useMutation({
+    mutationFn: (apply: boolean) =>
+      apiRequest<ImportSummary>(`/import/${entity}`, {
+        method: 'POST',
+        body: { csv },
+        query: { apply },
+      }),
+    onSuccess: setResult,
+  });
+
+  if (!has('settings:manage')) {
+    return (
+      <>
+        <PageHeader title="Reference data" />
+        <Card>
+          <EmptyState
+            title="Importing reference data is restricted"
+            description="Loading business units and the chart of accounts changes what every budget in the platform can be posted against, so it requires the settings:manage permission."
+          />
+        </Card>
+      </>
+    );
+  }
+
+  async function handleFile(file: File): Promise<void> {
+    setCsv(await file.text());
+    setResult(null);
+  }
+
+  const hasIssues = (result?.issues.length ?? 0) > 0;
+
+  return (
+    <>
+      <PageHeader
+        title="Reference data"
+        description="Load business units and the chart of accounts from a spreadsheet. Nothing is ever deleted by an import - a code missing from the file means the file did not mention it, not that it should disappear. Retire a record by setting isActive to no."
+      />
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card title="1. Choose and paste" bodyClassName="space-y-3 p-4">
+          <SelectField
+            label="What are you importing?"
+            value={entity}
+            onChange={(value) => {
+              setEntity(value as Entity);
+              setCsv('');
+              setResult(null);
+            }}
+            options={[
+              { value: 'business-units', label: ENTITY_LABEL['business-units'] },
+              { value: 'accounts', label: ENTITY_LABEL.accounts },
+            ]}
+            hint={`Columns: ${COLUMNS[entity]}`}
+          />
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => fileInput.current?.click()}
+            >
+              Choose CSV file
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => downloadFile(`/import/templates/${entity}`, `${entity}-template.csv`)}
+            >
+              Download template
+            </button>
+            <input
+              ref={fileInput}
+              type="file"
+              accept=".csv,text/csv"
+              className="sr-only"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void handleFile(file);
+              }}
+            />
+          </div>
+
+          <div>
+            <label className="field-label" htmlFor="csv-body">
+              CSV
+            </label>
+            <textarea
+              id="csv-body"
+              className="input h-56 font-mono text-2xs"
+              spellCheck={false}
+              value={csv}
+              placeholder={`${COLUMNS[entity]}\n…`}
+              onChange={(event) => {
+                setCsv(event.target.value);
+                setResult(null);
+              }}
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={csv.trim() === '' || run.isPending}
+              onClick={() => run.mutate(false)}
+            >
+              {run.isPending ? 'Checking…' : 'Check (writes nothing)'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              // Deliberately requires a clean check first. An import applied
+              // without anyone reading the preview is how a chart of accounts
+              // acquires two hundred rows nobody meant to add.
+              disabled={run.isPending || result === null || hasIssues || result.applied}
+              onClick={() => run.mutate(true)}
+            >
+              {run.isPending ? 'Importing…' : 'Apply import'}
+            </button>
+          </div>
+          {result === null && csv.trim() !== '' ? (
+            <p className="text-2xs text-slate-500 dark:text-slate-400">
+              Check the file first. Apply is enabled once the check comes back clean.
+            </p>
+          ) : null}
+        </Card>
+
+        <Card title="2. Review" bodyClassName="p-4">
+          {run.isError ? <ErrorState error={run.error} /> : null}
+
+          {result === null && !run.isError ? (
+            <EmptyState
+              title="Nothing checked yet"
+              description="Paste or choose a file and select Check. You will see exactly what would be created and what would change before anything is written."
+            />
+          ) : null}
+
+          {result ? (
+            <div className="space-y-3">
+              <div
+                className={`rounded-md border px-3 py-2 text-xs ${
+                  result.applied
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200'
+                    : hasIssues
+                      ? 'border-red-300 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200'
+                      : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-200'
+                }`}
+              >
+                {result.applied
+                  ? 'Imported. The changes below are now live.'
+                  : hasIssues
+                    ? 'Not imported. Fix the problems below and check again.'
+                    : 'Dry run only. Nothing has been written.'}
+              </div>
+
+              <dl className="grid grid-cols-3 gap-3 text-xs">
+                {[
+                  ['Create', result.created],
+                  ['Update', result.updated],
+                  ['Unchanged', result.unchanged],
+                ].map(([label, value]) => (
+                  <div key={String(label)}>
+                    <dt className="text-2xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      {label}
+                    </dt>
+                    <dd className="text-lg font-semibold tabular-nums">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+
+              {hasIssues ? (
+                <div>
+                  <h3 className="mb-1 text-xs font-semibold text-red-800 dark:text-red-300">
+                    {result.issues.length} problem{result.issues.length === 1 ? '' : 's'}
+                  </h3>
+                  <ul className="max-h-56 space-y-1 overflow-y-auto text-2xs">
+                    {result.issues.map((issue, index) => (
+                      <li key={index} className="text-slate-700 dark:text-slate-300">
+                        <span className="font-semibold tabular-nums">Row {issue.row}</span>
+                        {issue.field ? (
+                          <span className="text-slate-500"> · {issue.field}</span>
+                        ) : null}
+                        {' — '}
+                        {issue.message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {result.preview.length > 0 ? (
+                <div>
+                  <h3 className="mb-1 text-xs font-semibold">What changes</h3>
+                  <div className="max-h-64 overflow-y-auto">
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Code</th>
+                          <th>Action</th>
+                          <th>Fields</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {result.preview.map((entry) => (
+                          <tr key={`${entry.action}-${entry.code}`}>
+                            <td className="font-mono text-2xs">{entry.code}</td>
+                            <td>{entry.action === 'create' ? 'New' : 'Update'}</td>
+                            <td className="text-2xs text-slate-500 dark:text-slate-400">
+                              {entry.changed?.join(', ') ?? '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </Card>
+      </div>
+
+      <div className="mt-4">
+        <InlineNote>
+          Re-importing the same file is safe: rows that already match are reported as unchanged and
+          nothing is rewritten. That makes the file, not the platform, the place the chart of
+          accounts is maintained.
+        </InlineNote>
+      </div>
+    </>
+  );
+}

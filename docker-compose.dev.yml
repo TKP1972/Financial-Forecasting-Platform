@@ -1,0 +1,33 @@
+# Local-only overlay. NEVER use this anywhere a second person can reach.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d api
+#
+# The base stack runs NODE_ENV=production, which is correct - it is the mode the
+# platform should be exercised in. But two things are deliberately impossible in
+# production mode, and both need to be possible to test the flows end to end on
+# a laptop with no mailbox:
+#
+#   - PASSWORD_RESET_EXPOSE_TOKEN returns the reset token in the API response.
+#     config.ts refuses to start with this set when NODE_ENV=production, because
+#     it converts "I know an email address" into "I own that account". Running
+#     the API in development mode is the explicit, visible way to opt in - not a
+#     weakening of the guard.
+#
+#   - The dispatcher and deadline scanner run on a much shorter interval, so a
+#     smoke test does not wait a minute to see a notification delivered.
+#
+# scripts/smoke-test-pilot.ps1 skips its password-reset section, loudly, when the
+# token is not exposed - so the suite still passes against the base stack. This
+# file is how you get that section to actually run.
+
+services:
+  api:
+    environment:
+      NODE_ENV: development
+      PASSWORD_RESET_EXPOSE_TOKEN: 'true'
+      NOTIFICATION_DISPATCH_SECONDS: 15
+      DEADLINE_SCAN_SECONDS: 300
+      LOG_LEVEL: debug
+      # pino-pretty is a devDependency and is not in this image. Without this the
+      # container would try to load it purely because NODE_ENV says development.
+      LOG_PRETTY: 'false'

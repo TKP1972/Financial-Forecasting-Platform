@@ -1,0 +1,35 @@
+node_modules/
+dist/
+build/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+.env
+.env.local
+.env.*.local
+!.env.example
+
+logs/
+*.log
+npm-debug.log*
+
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+packages/api/prisma/*.db
+packages/api/generated/
+artifacts/
+tmp/
+
+# Machine-specific TLS interception CAs. See docker/certs/README.md.
+docker/certs/*.crt
+docker/certs/*.pem
+
+# Server certificates and, critically, private keys. See docker/tls/README.md.
+docker/tls/*.crt
+docker/tls/*.key
+docker/tls/*.pem

@@ -1,0 +1,61 @@
+{
+  "name": "financial-forecasting-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-end budgeting, forecasting, pricing, risk and expenditure-reporting platform",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "workspaces": [
+    "packages/shared",
+    "packages/engine",
+    "packages/api",
+    "packages/web"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @ffp/shared && npm run build --workspace @ffp/engine && npm run build --workspace @ffp/api && npm run build --workspace @ffp/web",
+    "build:libs": "npm run build --workspace @ffp/shared && npm run build --workspace @ffp/engine",
+    "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev --workspace @ffp/api\" \"npm run dev --workspace @ffp/web\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "pwsh ./scripts/smoke-test.ps1; pwsh ./scripts/smoke-test-planning.ps1; pwsh ./scripts/smoke-test-rolling.ps1; pwsh ./scripts/smoke-test-ratecards.ps1; pwsh ./scripts/smoke-test-pilot.ps1; pwsh ./scripts/verify-audit-tamper-detection.ps1",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md,yml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,json,md,yml}\"",
+    "_comment_db": "Prisma runs from the repo root so it picks up the single .env; the schema is passed explicitly.",
+    "db:generate": "prisma generate --schema packages/api/prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema packages/api/prisma/schema.prisma",
+    "db:deploy": "prisma migrate deploy --schema packages/api/prisma/schema.prisma",
+    "db:push": "prisma db push --schema packages/api/prisma/schema.prisma",
+    "db:seed": "tsx packages/api/src/seed.ts",
+    "db:reset": "prisma migrate reset --force --schema packages/api/prisma/schema.prisma",
+    "db:studio": "prisma studio --schema packages/api/prisma/schema.prisma",
+    "stack:up": "docker compose up -d --build",
+    "stack:down": "docker compose down",
+    "stack:logs": "docker compose logs -f",
+    "stack:nuke": "docker compose down -v",
+    "infra:up": "docker compose up -d postgres",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@types/node": "^22.10.5",
+    "@vitest/coverage-v8": "^2.1.8",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0",
+    "vitest": "^2.1.8"
+  },
+  "prisma": {
+    "seed": "tsx packages/api/src/seed.ts"
+  }
+}

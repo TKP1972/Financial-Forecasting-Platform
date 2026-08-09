@@ -1,0 +1,45 @@
+{
+  "name": "@ffp/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "prisma generate && tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:push": "prisma db push",
+    "db:seed": "tsx packages/api/src/seed.ts",
+    "db:reset": "prisma migrate reset --force",
+    "db:studio": "prisma studio",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.1",
+    "@fastify/helmet": "^13.0.1",
+    "@fastify/jwt": "^9.0.2",
+    "@fastify/rate-limit": "^10.2.2",
+    "@fastify/sensible": "^6.0.2",
+    "@ffp/engine": "*",
+    "@ffp/shared": "*",
+    "@node-rs/argon2": "^2.0.2",
+    "@prisma/client": "^6.2.1",
+    "decimal.js": "^10.4.3",
+    "exceljs": "^4.4.0",
+    "fastify": "^5.2.1",
+    "fastify-plugin": "^5.0.1",
+    "pino": "^9.6.0",
+    "prisma": "^6.2.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "pino-pretty": "^13.1.3"
+  }
+}
