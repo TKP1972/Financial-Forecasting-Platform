@@ -38,6 +38,13 @@ contingency figures must be reproducible for audit.
 **Separation of duties has no bypass.** `assertSeparationOfDuties` must not gain a role
 exemption, including for ADMIN.
 
+**The audit chain's limits are documented, not assumed.** `docs/audit-threat-model.md` states
+what the chain does and does not protect against — chiefly that `AUDIT_HASH_SALT` lives on the
+same host as the database, so an attacker who can alter rows can likely also recompute valid
+hashes. Anchoring (`AUDIT_ANCHOR_SECONDS`) emits the chain head outside the database to make
+tail truncation and rewriting detectable. Keep that document honest when the control changes;
+overstating it is worse than the gap.
+
 ## Traps that have already bitten
 
 Several of these are now enforced mechanically rather than by memory — `npm run verify` runs

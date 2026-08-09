@@ -1,0 +1,64 @@
+# Continuous verification.
+#
+# `npm run verify` was already the definition of this job long before there was
+# anywhere to run it - format, lint, repo invariants, the library build,
+# typecheck, 1000+ unit tests and the api coverage floor. This workflow just
+# gives it somewhere to run on every push, so the checks stop depending on
+# somebody remembering to run them.
+#
+# The end-to-end suites are deliberately NOT here. They need Postgres, the API
+# and the web app running, and smoke-test-rolling.ps1 consumes the seeded
+# cycle's open periods - it passes once against a fresh database and exits 1
+# afterwards. Wiring it in without a per-run reset would produce a red build
+# that everyone learns to ignore, which is worse than not running it.
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# A newer push to the same branch makes an in-flight run obsolete.
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The Prisma client is generated, not vendored, and there is no
+      # postinstall hook. Without this the api typecheck fails on every model
+      # type - Prisma.NotificationCreateManyInput and friends do not exist
+      # until the client is generated.
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Verify
+        run: npm run verify
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
+          if-no-files-found: ignore

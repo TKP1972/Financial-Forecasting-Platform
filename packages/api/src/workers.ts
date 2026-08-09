@@ -14,6 +14,7 @@
  */
 import type { FastifyInstance } from 'fastify';
 import { config } from './config.js';
+import { emitAnchor, fileSink, logSink } from './services/audit-anchor.service.js';
 import { scanDeadlines } from './services/deadline.service.js';
 import {
   createLogTransport,
@@ -72,6 +73,26 @@ export function startWorkers(app: FastifyInstance): StartedWorkers {
   every(config.DEADLINE_SCAN_SECONDS, 'deadline-scan', async () => {
     const result = await scanDeadlines({ appUrl: config.APP_URL });
     if (result.queued > 0) app.log.info(result, 'deadline reminders queued');
+  });
+
+  /**
+   * Emit the audit chain head somewhere the database cannot reach.
+   *
+   * Logged at `warn` rather than `info` deliberately: this is the record that
+   * makes tail truncation detectable, and it needs to survive a log level set
+   * to filter routine chatter. An anchor that was never retained is an anchor
+   * that never existed.
+   */
+  every(config.AUDIT_ANCHOR_SECONDS, 'audit-anchor', async () => {
+    const sinks = [
+      logSink((anchor) => app.log.warn({ auditAnchor: anchor }, 'audit chain anchor')),
+      ...(config.AUDIT_ANCHOR_FILE ? [fileSink(config.AUDIT_ANCHOR_FILE)] : []),
+    ];
+
+    const result = await emitAnchor(sinks);
+    if (result.failed.length > 0) {
+      app.log.error({ failed: result.failed }, 'audit anchor sink(s) failed');
+    }
   });
 
   return {

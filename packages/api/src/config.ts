@@ -114,6 +114,26 @@ const envSchema = z.object({
   DEADLINE_SCAN_SECONDS: z.coerce.number().int().min(0).default(3600),
 
   /**
+   * Seconds between audit-chain anchor emissions. 0 disables anchoring.
+   *
+   * An anchor is the chain head - sequence and hash - written somewhere the
+   * database cannot reach. It is what makes tail truncation detectable, and what
+   * turns a rewrite by someone holding AUDIT_HASH_SALT into something that can
+   * be caught. The interval is the residual window: entries newer than the last
+   * anchor are not covered.
+   */
+  AUDIT_ANCHOR_SECONDS: z.coerce.number().int().min(0).default(3600),
+
+  /**
+   * Optional append-only file for anchors, as JSON Lines.
+   *
+   * The application log always receives anchors. A file is useful when the log
+   * is not shipped off-host; it should live on a different volume from the
+   * database, and ideally one the API user can append to but not rewrite.
+   */
+  AUDIT_ANCHOR_FILE: z.string().optional(),
+
+  /**
    * Return the password reset token in the API response.
    *
    * Only for local development and the smoke test, which have no mailbox to read.
@@ -128,6 +148,15 @@ export type AppConfig = Readonly<z.infer<typeof envSchema>> & {
   readonly isTest: boolean;
   readonly corsOrigins: readonly string[];
 };
+
+/**
+ * Values that appear verbatim in .env.example.
+ *
+ * Kept in step with that file by config.test.ts, which reads it and fails if a
+ * credential there is not represented here - so adding a new example value
+ * cannot silently create a production hole.
+ */
+export const KNOWN_EXAMPLE_VALUES = new Set(['ffp_local_dev_password', 'Adm1n!Local2026']);
 
 function load(): AppConfig {
   const parsed = envSchema.safeParse(process.env);
@@ -144,9 +173,30 @@ function load(): AppConfig {
   // A development placeholder secret reaching production is a serious problem,
   // so refuse to boot rather than warn and continue.
   if (env.NODE_ENV === 'production') {
-    if (env.JWT_SECRET.includes('change_me') || env.AUDIT_HASH_SALT.includes('change_me')) {
+    /**
+     * Every secret that ships with a working value in .env.example, not only the
+     * two that carry a `change_me` marker.
+     *
+     * POSTGRES_PASSWORD and SEED_ADMIN_PASSWORD are real, functioning values in
+     * the example file - a copy-and-fill deployment leaves them in place and
+     * nothing complained, because the guard only looked for `change_me`. The
+     * seeded admin password is the more serious of the two: it is a known
+     * credential for an account that can approve budgets.
+     */
+    const candidates: ReadonlyArray<readonly [name: string, value: string]> = [
+      ['JWT_SECRET', env.JWT_SECRET],
+      ['AUDIT_HASH_SALT', env.AUDIT_HASH_SALT],
+      ['SEED_ADMIN_PASSWORD', env.SEED_ADMIN_PASSWORD],
+      ['POSTGRES_PASSWORD', process.env.POSTGRES_PASSWORD ?? ''],
+    ];
+    const insecure = candidates.filter(
+      ([, value]) => value.includes('change_me') || KNOWN_EXAMPLE_VALUES.has(value),
+    );
+
+    if (insecure.length > 0) {
       throw new Error(
-        'Refusing to start in production with placeholder secrets. Set JWT_SECRET and AUDIT_HASH_SALT to real generated values.',
+        `Refusing to start in production with values taken from .env.example: ` +
+          `${insecure.map(([name]) => name).join(', ')}. Generate real values for each.`,
       );
     }
     if (env.PASSWORD_RESET_EXPOSE_TOKEN) {
