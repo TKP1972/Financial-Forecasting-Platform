@@ -79,15 +79,16 @@ recognise it.
   repeated, not one decision. A budget with no currency inherits its **cycle's** currency rather
   than the global default, which is the more correct rule and is deliberately left in place.
 - **No tax handling of any kind.** Keep it that way.
-- **Fiscal calendar is parameterised** — `FiscalConfig` supports any `startMonth` and both
-  `labelBy` conventions, covering UK/India (April), Australia/NZ (July), Japan (April) and US
-  federal (October).
+- **Fiscal calendar is wired, not merely parameterised.** Each budget cycle stores its own
+  `fiscalStartMonth` and `fiscalYearLabel`; new cycles take `FISCAL_YEAR_START_MONTH` and
+  `FISCAL_YEAR_LABEL_BY` from the deployment. Covers UK/India (April), Australia/NZ (July),
+  Japan (April) and US federal (October). Stored per cycle deliberately: changing the deployment
+  setting must not re-date a year that has already been closed and reported. **Period keys do not
+  depend on the calendar**, so the budget-to-actual join is unaffected by the setting — asserted
+  in `fiscal-config.test.ts`.
 
 ### Known gaps, not yet decided
 
-- **`FiscalConfig` is never supplied.** Nothing outside `fiscal.ts` passes it, so every call
-  takes the January default. The capability exists; the wiring does not. Cheapest high-value
-  regionalisation available.
 - **No 4-4-5 or 13-period calendar.** `PERIODS_PER_YEAR` is fixed at
   `{ MONTH: 12, QUARTER: 4, HALF: 2, YEAR: 1 }`. Common in telecom and retail. This one is
   **storage-shaped**: period keys (`FY2026-P03`) are the join key between budgets and actuals, so

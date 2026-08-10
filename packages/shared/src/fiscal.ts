@@ -23,6 +23,28 @@ export interface FiscalConfig {
 
 export const DEFAULT_FISCAL_CONFIG: FiscalConfig = { startMonth: 1, labelBy: 'START' };
 
+/**
+ * Build a {@link FiscalConfig} from a stored record.
+ *
+ * A budget cycle carries its own fiscal calendar so that changing the
+ * deployment default cannot re-date a year that has already been closed and
+ * reported. This is the one place that mapping happens, so a caller cannot
+ * accidentally read the columns and forget one.
+ *
+ * Note that **period keys do not depend on this config** - only the calendar
+ * dates a period covers and the label it is given. Callers that need keys
+ * alone, such as the budget line builder, correctly need no config at all.
+ */
+export function fiscalConfigOf(source: {
+  fiscalStartMonth: number;
+  fiscalYearLabel: string;
+}): FiscalConfig {
+  return {
+    startMonth: source.fiscalStartMonth as FiscalYearStartMonth,
+    labelBy: source.fiscalYearLabel === 'END' ? 'END' : 'START',
+  };
+}
+
 export interface FiscalPeriod {
   /** Stable sortable key, e.g. "FY2026-P03". */
   key: string;

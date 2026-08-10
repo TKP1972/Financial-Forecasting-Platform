@@ -162,6 +162,10 @@ export const createBudgetCycleSchema = z
     submissionDeadline: isoDate,
     approvalDeadline: isoDate,
     baseCurrency: z.string().length(3).optional(),
+    /** Calendar month the fiscal year opens on. Defaults to the deployment's setting. */
+    fiscalStartMonth: z.number().int().min(1).max(12).optional(),
+    /** Whether FY2026 begins (START) or ends (END) in calendar 2026. */
+    fiscalYearLabel: z.enum(['START', 'END']).optional(),
     guidanceNotes: z.string().max(20000).optional(),
   })
   .refine((v) => new Date(v.opensAt) < new Date(v.submissionDeadline), {

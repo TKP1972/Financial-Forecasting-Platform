@@ -45,6 +45,13 @@ enum BudgetCycleStatus {
   CLOSED
 }
 
+/// How a fiscal year is named relative to the calendar years it spans.
+/// FY2026 with START begins in calendar 2026; with END it ends there.
+enum FiscalYearLabel {
+  START
+  END
+}
+
 enum BudgetMethod {
   INCREMENTAL
   ZERO_BASED
@@ -374,6 +381,18 @@ model BudgetCycle {
   approvalDeadline   DateTime
   baseCurrency       String            @default("USD")
   guidanceNotes      String?
+
+  /// Calendar month the fiscal year opens on: 1 = January ... 12 = December.
+  /// Stored per cycle rather than only as a deployment setting so a cycle's
+  /// calendar is frozen at creation. An organisation that changes its fiscal
+  /// year - which happens on acquisition - must not silently re-date every
+  /// cycle it has already closed. New cycles take FISCAL_YEAR_START_MONTH.
+  fiscalStartMonth Int @default(1)
+
+  /// How the fiscal year is named. START means FY2026 begins in calendar 2026;
+  /// END means it ends there, which is the usual convention in the UK and
+  /// Australia. Affects labels only - period keys never depend on it.
+  fiscalYearLabel FiscalYearLabel @default(START)
 
   /// Fiscal years the cycle spans, starting at `fiscalYear`. 1 is an Annual
   /// Operating Plan; 3 to 5 makes it a Medium Term Plan. Budget lines carry one

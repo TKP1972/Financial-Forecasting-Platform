@@ -9,6 +9,7 @@ import type { FastifyInstance } from 'fastify';
 import {
   AppError,
   buildFiscalYear,
+  fiscalConfigOf,
   createBudgetCycleSchema,
   publishGuidanceSchema,
   budgetAssumptionSchema,
@@ -74,7 +75,9 @@ export async function registerCycleRoutes(app: FastifyInstance): Promise<void> {
 
     if (!cycle) throw new AppError('NOT_FOUND', `Budget cycle '${id}' was not found.`);
 
-    const periods = buildFiscalYear(cycle.fiscalYear, cycle.periodType);
+    // The cycle's own calendar, not the deployment default - an old cycle keeps
+    // the fiscal year it was created under.
+    const periods = buildFiscalYear(cycle.fiscalYear, cycle.periodType, fiscalConfigOf(cycle));
 
     return {
       data: {
@@ -112,6 +115,8 @@ export async function registerCycleRoutes(app: FastifyInstance): Promise<void> {
         submissionDeadline: new Date(input.submissionDeadline),
         approvalDeadline: new Date(input.approvalDeadline),
         baseCurrency: input.baseCurrency ?? config.BASE_CURRENCY,
+        fiscalStartMonth: input.fiscalStartMonth ?? config.FISCAL_YEAR_START_MONTH,
+        fiscalYearLabel: (input.fiscalYearLabel ?? config.FISCAL_YEAR_LABEL_BY) as never,
         guidanceNotes: input.guidanceNotes ?? null,
       },
     });

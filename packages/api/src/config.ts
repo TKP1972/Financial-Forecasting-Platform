@@ -85,6 +85,24 @@ const envSchema = z.object({
    */
   BASE_CURRENCY: z.string().length(3).default(DEFAULT_CURRENCY),
 
+  /**
+   * Calendar month the fiscal year opens on, for cycles that do not state one.
+   * 1 = January (the default), 4 = April (UK, India, Japan), 7 = July
+   * (Australia, New Zealand), 10 = October (US federal).
+   *
+   * This seeds new cycles; it does not retroactively change existing ones. A
+   * cycle stores its own calendar precisely so that changing this setting
+   * cannot silently re-date a year that has already been closed and reported.
+   */
+  FISCAL_YEAR_START_MONTH: z.coerce.number().int().min(1).max(12).default(1),
+
+  /**
+   * Whether FY2026 is the year that *begins* in calendar 2026 (`START`) or the
+   * one that *ends* there (`END`, the usual UK and Australian convention).
+   * Affects labels only — period keys never depend on it.
+   */
+  FISCAL_YEAR_LABEL_BY: z.enum(['START', 'END']).default('START'),
+
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
   RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(300),
   RATE_LIMIT_WINDOW: z.coerce.number().int().min(1000).default(60000),
