@@ -41,28 +41,23 @@ describe('money', () => {
   });
 
   /**
-   * KNOWN INCONSISTENCY, recorded rather than hidden.
+   * Display rounding matches the arithmetic.
    *
-   * Every calculation in the platform rounds half-to-even (banker's), but
-   * display goes through Intl.NumberFormat, whose default is half-expand. They
-   * disagree on exact ties at the displayed precision:
+   * These differed once: Intl.NumberFormat defaults to half-expand, so 0.125
+   * displayed as 0.13 while every calculation in the platform rounded it to
+   * 0.12. Small, and exactly the penny discrepancy that costs an afternoon in
+   * a reconciliation meeting. formatMoney now passes roundingMode: 'halfEven'.
    *
-   *   formatMoney('0.125') at 2dp        -> $0.13   (half-expand)
-   *   Decimal('0.125').toDecimalPlaces(2) -> 0.12   (half-even)
-   *
-   * docs/calculation-methodology.md tells users banker's rounding is used and
-   * that a half-up hand-check may differ by a penny on a tie. For displayed
-   * figures that is currently backwards.
-   *
-   * Intl.NumberFormat supports `roundingMode: 'halfEven'`, so the fix is small,
-   * but it changes money presentation product-wide and is awaiting a decision.
-   * This test asserts today's behaviour so the change is deliberate: if someone
-   * fixes formatMoney, this fails and points here.
+   * Asserted here rather than only in shared, because this is where a user
+   * actually sees the number.
    */
-  it('currently rounds half-expand on display, unlike the engine', () => {
-    expect(money('0.125', { decimals: 2 })).toBe('$0.13');
-    // Where the two conventions agree, they agree.
+  it('rounds half-to-even on display, matching the engine', () => {
+    expect(money('0.125', { decimals: 2 })).toBe('$0.12');
     expect(money('0.135', { decimals: 2 })).toBe('$0.14');
+    // 0.145 -> 0.14 and 0.155 -> 0.16: ties go to the even digit in both
+    // directions, which is the property that makes it unbiased.
+    expect(money('0.145', { decimals: 2 })).toBe('$0.14');
+    expect(money('0.155', { decimals: 2 })).toBe('$0.16');
   });
 
   it('brackets negatives by default, as an accountant expects', () => {

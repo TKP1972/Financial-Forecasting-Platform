@@ -378,6 +378,16 @@ export function formatMoney(value: MoneyInput, options: FormatMoneyOptions = {})
     currency,
     minimumFractionDigits: minDigits,
     maximumFractionDigits: maxDigits,
+    // Match the arithmetic. Every calculation in the platform rounds
+    // half-to-even, but Intl defaults to half-expand, so a displayed figure
+    // disagreed with the stored one on exact ties: 0.125 showed as 0.13 where
+    // the engine rounds it to 0.12. Small, and exactly the kind of penny
+    // discrepancy that costs an afternoon in a reconciliation meeting.
+    //
+    // Engines without Intl.NumberFormat v3 ignore an unrecognised option
+    // rather than throwing, so this degrades to the old behaviour rather than
+    // breaking.
+    roundingMode: 'halfEven',
   }).format(magnitude);
 
   const withSuffix = suffix ? `${formatted}${suffix}` : formatted;
@@ -393,5 +403,7 @@ export function formatPercent(
     style: 'percent',
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
+    // Half-to-even here too, for the same reason as formatMoney above.
+    roundingMode: 'halfEven',
   }).format(toDecimal(rate).toNumber());
 }

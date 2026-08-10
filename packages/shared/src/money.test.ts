@@ -573,8 +573,15 @@ describe('formatMoney', () => {
 
 describe('formatPercent', () => {
   it('formats a fraction as a percentage', () => {
-    // 0.0725 -> 7.3% at one fraction digit
-    expect(formatPercent('0.0725')).toBe('7.3%');
+    // 0.0725 -> 7.2% at one fraction digit.
+    //
+    // This expected 7.3% until formatMoney and formatPercent were given
+    // roundingMode: 'halfEven'. 7.25 is an exact tie at one place, and the
+    // engine has always rounded it to 7.2 - toPercent('0.0725') is 7.25 and
+    // Decimal rounds half-to-even. Intl's default is half-expand, so the
+    // display and the arithmetic disagreed. The old expectation encoded that
+    // disagreement rather than a deliberate choice.
+    expect(formatPercent('0.0725')).toBe('7.2%');
     expect(formatPercent('0.0725', { fractionDigits: 2 })).toBe('7.25%');
     expect(formatPercent('-0.125', { fractionDigits: 1 })).toBe('-12.5%');
   });
