@@ -10,7 +10,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['packages/*/src/**/*.{test,spec}.ts', 'packages/*/tests/**/*.{test,spec}.ts'],
+    include: [
+      'packages/*/src/**/*.{test,spec}.{ts,tsx}',
+      'packages/*/tests/**/*.{test,spec}.{ts,tsx}',
+    ],
     exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**'],
     // config.ts validates and freezes process.env at import time, so the API's
     // fake environment has to be in place before any test module loads. Harmless
@@ -48,6 +51,9 @@ export default defineConfig({
     alias: {
       '@ffp/shared': resolve(rootDir, 'packages/shared/src/index.ts'),
       '@ffp/engine': resolve(rootDir, 'packages/engine/src/index.ts'),
+      // Mirrors packages/web/vite.config.ts. Web modules import each other as
+      // '@/store/auth'; without this the tests resolve nothing.
+      '@': resolve(rootDir, 'packages/web/src'),
     },
   },
 });

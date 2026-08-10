@@ -97,6 +97,39 @@ const failures = [];
 }
 
 // --------------------------------------------------------------------------
+// 3. No replacement characters.
+//
+// U+FFFD means text was decoded as the wrong encoding and the original byte is
+// gone. It earns its own check because it is how a NUL escapes check 2: a
+// formatter that rewrites a file converts the NUL to U+FFFD, which is no longer
+// a NUL and passes - while the text is now silently wrong rather than loudly
+// wrong. Caught exactly that way once.
+// --------------------------------------------------------------------------
+{
+  const offenders = [];
+  for (const file of walk(root)) {
+    if (!/\.(ts|tsx|js|jsx|mjs|cjs|json|md|ps1|yml|yaml)$/.test(file)) continue;
+    const text = readFileSync(file, 'utf8');
+    // Referenced by escape, not as a literal, so this file cannot fail its own
+    // check — and so the character survives any tool that rewrites the source.
+    const index = text.indexOf('\uFFFD');
+    if (index !== -1) {
+      const line = text.slice(0, index).split('\n').length;
+      offenders.push(`${relative(root, file)}:${line}`);
+    }
+  }
+
+  if (offenders.length > 0) {
+    failures.push({
+      title: 'Replacement character (U+FFFD) in a file',
+      why: 'The text was decoded as the wrong encoding; the original character is unrecoverable from this file.',
+      fix: 'Restore the intended character. If it was a NUL, write the escape sequence instead.',
+      offenders,
+    });
+  }
+}
+
+// --------------------------------------------------------------------------
 
 if (failures.length === 0) {
   console.log('repo invariants: OK');
