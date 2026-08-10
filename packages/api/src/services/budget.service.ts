@@ -181,6 +181,15 @@ export interface TransitionResult {
 }
 
 /**
+ * Statuses in which a budget's numbers may still change.
+ *
+ * Used in two places that must agree: `replaceBudgetLines` refuses edits
+ * outside these, and `transitionBudget` clears sign-offs when entering one.
+ * They were separate lists once, and the second was missing IN_REVIEW.
+ */
+const EDITABLE_STATUSES: readonly BudgetStatus[] = ['DRAFT', 'IN_REVIEW'];
+
+/**
  * Move a budget through the workflow.
  *
  * Checks, in order:
@@ -278,9 +287,19 @@ export async function transitionBudget(
     if (to === 'LOCKED') {
       data.lockedAt = now;
     }
-    if (to === 'DRAFT') {
-      // Returning to draft clears the prior sign-offs; leaving them in place
-      // would let a stale approval carry over onto edited numbers.
+    // Returning to an editable status clears the prior sign-offs; leaving them
+    // in place would let a stale approval carry over onto edited numbers.
+    //
+    // This is keyed on *editability*, not on DRAFT alone. IN_REVIEW is equally
+    // editable (see replaceBudgetLines) and APPROVED -> IN_REVIEW is a legal
+    // transition, so covering only DRAFT left an approved budget able to be
+    // pulled back, edited, and still display the approver and date of the
+    // numbers that person actually signed off.
+    //
+    // preparedBy is deliberately untouched: it records who originated the
+    // budget rather than a sign-off, and separation of duties bars the preparer
+    // from approving however many revisions have happened since.
+    if (EDITABLE_STATUSES.includes(to)) {
       data.submittedBy = { disconnect: true };
       data.approvedBy = { disconnect: true };
       data.submittedAt = null;
@@ -453,8 +472,7 @@ export async function replaceBudgetLines(
   });
   if (!budget) throw new AppError('NOT_FOUND', `Budget '${budgetId}' was not found.`);
 
-  const editable: BudgetStatus[] = ['DRAFT', 'IN_REVIEW'];
-  if (!editable.includes(budget.status as BudgetStatus)) {
+  if (!EDITABLE_STATUSES.includes(budget.status as BudgetStatus)) {
     throw new AppError(
       'CONFLICT',
       `A budget in ${budget.status} cannot be edited. Return it to draft first.`,
