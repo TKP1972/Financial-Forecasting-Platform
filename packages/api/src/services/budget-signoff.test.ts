@@ -18,7 +18,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const db = vi.hoisted(() => ({
-  budget: { findUnique: vi.fn(), update: vi.fn() },
+  budget: { findUnique: vi.fn(), updateMany: vi.fn() },
   budgetVersion: { create: vi.fn() },
   approval: { create: vi.fn() },
   $transaction: vi.fn(),
@@ -64,10 +64,16 @@ function approvedBudget(overrides: Record<string, unknown> = {}) {
   };
 }
 
-/** The `data` object handed to prisma.budget.update. */
+/** The `data` object handed to prisma.budget.updateMany. */
 function updatePayload(): Record<string, unknown> {
-  const call = db.budget.update.mock.calls[0]?.[0] as { data?: Record<string, unknown> };
+  const call = db.budget.updateMany.mock.calls[0]?.[0] as { data?: Record<string, unknown> };
   return call?.data ?? {};
+}
+
+/** The `where` clause of that same call - the concurrency guard. */
+function updateGuard(): Record<string, unknown> {
+  const call = db.budget.updateMany.mock.calls[0]?.[0] as { where?: Record<string, unknown> };
+  return call?.where ?? {};
 }
 
 beforeEach(() => {
@@ -87,7 +93,7 @@ beforeEach(() => {
       },
     }),
   );
-  db.budget.update.mockResolvedValue({ id: 'budget-1' });
+  db.budget.updateMany.mockResolvedValue({ count: 1 });
   db.budgetVersion.create.mockResolvedValue({ id: 'version-1' });
   db.approval.create.mockResolvedValue({ id: 'approval-1' });
 });
@@ -102,7 +108,7 @@ describe('returning an APPROVED budget to IN_REVIEW', () => {
     expect(data.status).toBe('IN_REVIEW');
     // The whole point: an approval that no longer corresponds to the numbers
     // must not survive into a state where those numbers can change.
-    expect(data.approvedBy).toEqual({ disconnect: true });
+    expect(data.approvedById).toBeNull();
     expect(data.approvedAt).toBeNull();
   });
 
@@ -112,7 +118,7 @@ describe('returning an APPROVED budget to IN_REVIEW', () => {
     await transitionBudget('budget-1', 'IN_REVIEW', CFO);
 
     const data = updatePayload();
-    expect(data.submittedBy).toEqual({ disconnect: true });
+    expect(data.submittedById).toBeNull();
     expect(data.submittedAt).toBeNull();
   });
 
@@ -124,7 +130,7 @@ describe('returning an APPROVED budget to IN_REVIEW', () => {
 
     await transitionBudget('budget-1', 'IN_REVIEW', CFO);
 
-    expect(updatePayload()).not.toHaveProperty('preparedBy');
+    expect(updatePayload()).not.toHaveProperty('preparedById');
   });
 });
 
@@ -137,8 +143,8 @@ describe('the existing DRAFT behaviour is unchanged', () => {
     await transitionBudget('budget-1', 'DRAFT', CFO);
 
     const data = updatePayload();
-    expect(data.approvedBy).toEqual({ disconnect: true });
-    expect(data.submittedBy).toEqual({ disconnect: true });
+    expect(data.approvedById).toBeNull();
+    expect(data.submittedById).toBeNull();
   });
 });
 
@@ -149,7 +155,40 @@ describe('forward transitions do not clear anything', () => {
     await transitionBudget('budget-1', 'APPROVED', CFO);
 
     const data = updatePayload();
-    expect(data.approvedBy).toEqual({ connect: { id: CFO.id } });
+    expect(data.approvedById).toBe(CFO.id);
     expect(data.approvedAt).toBeInstanceOf(Date);
+  });
+});
+
+describe('the guarded write', () => {
+  it('matches on the version and status the checks were made against', async () => {
+    db.budget.findUnique.mockResolvedValue(approvedBudget({ status: 'SUBMITTED', version: 3 }));
+
+    await transitionBudget('budget-1', 'APPROVED', CFO);
+
+    // Without these, two concurrent approvals both pass the controls and both
+    // write, and only an incidental unique constraint stops the second.
+    expect(updateGuard()).toMatchObject({ id: 'budget-1', version: 3, status: 'SUBMITTED' });
+  });
+
+  it('refuses with a legible conflict when the row moved underneath', async () => {
+    db.budget.findUnique.mockResolvedValue(approvedBudget({ status: 'SUBMITTED', version: 3 }));
+    // Someone else transitioned it between the read and the write.
+    db.budget.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(transitionBudget('budget-1', 'APPROVED', CFO)).rejects.toThrow(
+      /changed while the transition to APPROVED was being processed/,
+    );
+  });
+
+  it('writes no approval record when the guard refuses', async () => {
+    db.budget.findUnique.mockResolvedValue(approvedBudget({ status: 'SUBMITTED', version: 3 }));
+    db.budget.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(transitionBudget('budget-1', 'APPROVED', CFO)).rejects.toThrow();
+
+    // The throw happens before the approval and snapshot writes, and the real
+    // transaction would roll back anything already written.
+    expect(db.approval.create).not.toHaveBeenCalled();
   });
 });

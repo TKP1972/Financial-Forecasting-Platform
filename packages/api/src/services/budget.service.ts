@@ -274,14 +274,19 @@ export async function transitionBudget(
   const now = new Date();
 
   return prisma.$transaction(async (tx) => {
-    const data: Prisma.BudgetUpdateInput = { status: to as never, version: nextVersion };
+    // Scalar foreign keys rather than relation syntax, because the guarded
+    // write below uses updateMany, which only accepts scalars.
+    const data: Prisma.BudgetUpdateManyMutationInput & {
+      submittedById?: string | null;
+      approvedById?: string | null;
+    } = { status: to as never, version: nextVersion };
 
     if (to === 'SUBMITTED') {
-      data.submittedBy = { connect: { id: actor.id } };
+      data.submittedById = actor.id;
       data.submittedAt = now;
     }
     if (to === 'APPROVED') {
-      data.approvedBy = { connect: { id: actor.id } };
+      data.approvedById = actor.id;
       data.approvedAt = now;
     }
     if (to === 'LOCKED') {
@@ -300,13 +305,36 @@ export async function transitionBudget(
     // budget rather than a sign-off, and separation of duties bars the preparer
     // from approving however many revisions have happened since.
     if (EDITABLE_STATUSES.includes(to)) {
-      data.submittedBy = { disconnect: true };
-      data.approvedBy = { disconnect: true };
+      data.submittedById = null;
+      data.approvedById = null;
       data.submittedAt = null;
       data.approvedAt = null;
     }
 
-    await tx.budget.update({ where: { id: budgetId }, data });
+    /**
+     * Guarded write: the row must still be in the state the checks were made
+     * against.
+     *
+     * Every control above was evaluated from a read taken before this
+     * transaction opened, so two concurrent approvals could both pass and both
+     * write. The unique constraint on (budgetId, version) already caused the
+     * loser to roll back, but only incidentally, and it surfaced as a confusing
+     * "a record with this budgetId, version already exists". Matching on the
+     * observed version and status makes the intent explicit and the failure
+     * legible.
+     */
+    const written = await tx.budget.updateMany({
+      where: { id: budgetId, version: budget.version, status: from as never },
+      data,
+    });
+
+    if (written.count === 0) {
+      throw new AppError(
+        'CONFLICT',
+        `This budget changed while the transition to ${to} was being processed. Reload it and try again.`,
+        { details: { expectedStatus: from, expectedVersion: budget.version } },
+      );
+    }
 
     await snapshotVersion(
       tx,
