@@ -1,0 +1,243 @@
+# Control matrix
+
+The financial controls this platform enforces, what each prevents, how it is enforced, and the
+evidence that it works.
+
+Written for the conversation that begins _"what stops someone approving their own budget?"_ —
+from an auditor, a client's finance function, or your own board. Each control below can be
+demonstrated on a running system in under a minute.
+
+Two things distinguish this from a control register that merely asserts its controls exist:
+
+- **Every control has a test that attempts the thing the control forbids** and confirms it is
+  refused. A test that only exercises the happy path proves nothing about a control.
+- **The live register is queryable.** `GET /api/v1/governance/controls` returns the controls in
+  force, from the running system rather than from this document. Where the two disagree, the
+  endpoint is right and this document is stale.
+
+> Who holds each capability is in the [user manual](user-manual.md). How the numbers are derived
+> is in the [calculation methodology](calculation-methodology.md).
+
+---
+
+## Summary
+
+| ID         | Control                    | Prevents                                           | Status       |
+| ---------- | -------------------------- | -------------------------------------------------- | ------------ |
+| **SOD-01** | Separation of duties       | Self-approval of budgets                           | **ENFORCED** |
+| **DOA-01** | Delegated authority limits | Commitment beyond a person's authority             | **ENFORCED** |
+| **AUD-01** | Tamper-evident audit trail | Silent alteration or deletion of the record        | **ENFORCED** |
+| **VER-01** | Budget version snapshots   | An approved budget being changed after approval    | **ENFORCED** |
+| **LCK-01** | Locked baseline            | The reporting baseline moving under issued reports | **ENFORCED** |
+
+**ENFORCED** means refused server-side by the platform, not warned about and not left to
+procedure. A user cannot opt out, and neither can an administrator.
+
+---
+
+## SOD-01 — Separation of duties
+
+**The control.** A budget cannot be approved by whoever prepared or submitted it.
+
+**What it prevents.** One person originating a commitment and authorising it. This is the oldest
+control in accounting and the one most often weakened in software, usually by an override added
+for an urgent case that then becomes permanent.
+
+**How it is enforced.** `assertSeparationOfDuties` is called inside the budget transition service,
+before any write, on every transition to `APPROVED` or `LOCKED`. It compares the actor against the
+recorded preparer and submitter. Refusal is HTTP 403 with code `SEPARATION_OF_DUTIES`.
+
+**No exemption exists for any role, including ADMIN.** The function takes no role parameter — there
+is no argument through which an exemption could be passed. This is recorded in the repository's
+own conventions as a rule that must never be relaxed.
+
+**Evidence.**
+
+| Test                                        | What it proves                                                                                                                                                 |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shared/src/rbac.test.ts`                   | The rule refuses preparer and submitter, and every role in turn.                                                                                               |
+| `api/src/routes/budgets.transition.test.ts` | The approval **endpoint** actually reaches the rule — preparer refused, submitter refused, applied to `LOCKED` as well as `APPROVED`, and **no ADMIN bypass**. |
+| `smoke-test.ps1`                            | Refused against a live stack.                                                                                                                                  |
+
+Each negative test also asserts no database transaction was opened, so a control that raised
+_after_ a partial write would still fail.
+
+**To demonstrate.** Sign in as the user who submitted a budget and attempt to approve it. The
+refusal names the control.
+
+**Limit worth stating.** The control compares recorded identities. Two people sharing one account
+defeat it, as they defeat every attribution control. Account sharing is a policy matter outside
+the platform's reach.
+
+---
+
+## DOA-01 — Delegated authority limits
+
+**The control.** An approval above the approver's limit is refused and must be escalated.
+
+**What it prevents.** Commitment beyond the authority the organisation has granted. Seniority and
+authority are separate: holding a senior role does not imply an unlimited limit, and the platform
+checks role seniority **first**, then the amount.
+
+**How it is enforced.** `assertWithinDelegatedAuthority` compares the budget total against the
+actor's limit — their per-user override where set, otherwise the role default. Refusal is HTTP 403
+with code `DELEGATED_AUTHORITY_EXCEEDED`, and the response carries both the limit and the amount so
+the user can see the gap rather than guess at it.
+
+| Role            | Default limit |
+| --------------- | ------------- |
+| Viewer, Analyst | none          |
+| Budget Owner    | 250,000       |
+| Finance Manager | 2,000,000     |
+| CFO, Admin      | unlimited     |
+
+Per-user overrides are a governance decision: raising someone's limit changes what they can
+commit the organisation to, and the change is itself audited.
+
+**Evidence.** `shared/src/rbac.test.ts` covers the comparison including boundary values;
+`api/src/routes/budgets.transition.test.ts` proves the endpoint refuses an over-limit approval and
+honours a per-user override, distinguishing this refusal from the role-seniority one by error
+code — three separate controls all answer 403, and a test asserting only the status would pass for
+the wrong reason.
+
+**To demonstrate.** Attempt to approve a budget above your limit. Compare with a colleague whose
+limit covers it.
+
+---
+
+## AUD-01 — Tamper-evident audit trail
+
+**The control.** Every governed action is recorded in a hash chain. Any edit, deletion or splice
+is detectable.
+
+**What it prevents.** Silent alteration of the record. Not alteration itself — someone with
+database access can change a row — but doing so _without leaving evidence_.
+
+**How it is enforced.** Each entry carries a SHA-256 hash over its own fields plus the previous
+entry's hash, salted per deployment. Verification walks the chain and re-derives every hash,
+distinguishing three failures: content edited in place, `previousHash` spliced, and a sequence gap
+from deletion. Audit rows are written **inside the transaction that caused them**, so an audited
+action cannot succeed without its audit record.
+
+**Evidence — and this is the one worth showing.** `verify-audit-tamper-detection.ps1` does not
+confirm that an untouched chain passes. It:
+
+1. verifies the chain is intact,
+2. **edits a row directly in the database**, confirms detection _and correct location_,
+3. restores it and confirms the chain verifies again,
+4. **deletes a row**, confirms the gap is reported,
+5. restores it and confirms full recovery.
+
+Eight assertions against a live database. This is the difference between testing that a control
+exists and testing that it works.
+
+**Limits, stated because they are real.** Two are documented in full in
+[the audit threat model](audit-threat-model.md):
+
+- The salt lives in the API environment, on the same host as the database. **Someone who can alter
+  rows can likely also read the salt and recompute a valid chain.** The control is effective
+  against accidental modification, careless correction and casual tampering — which is what most
+  audit trails actually face — and weaker against a privileged attacker.
+- Truncating the tail of the chain is not detectable from the chain alone at any cost.
+
+**Anchoring narrows both.** `AUDIT_ANCHOR_SECONDS` emits the chain head to sinks outside the
+database, so a truncated tail or a rewritten chain can be caught by comparison against what was
+witnessed. Residual risk is stated in the threat model rather than glossed.
+
+**To demonstrate.** `POST /governance/audit/verify` as CFO or administrator. It reports entries
+checked and the first failure if any.
+
+**Operational requirement.** Detection requires someone to run the check. **If nobody verifies,
+the property is theoretical.** Verify on a schedule and treat a failure as an incident.
+
+---
+
+## VER-01 — Budget version snapshots
+
+**The control.** Every status transition freezes a complete copy of the budget.
+
+**What it prevents.** An approved budget being edited afterwards and the approval appearing to
+cover numbers it never saw. Without this, "the CFO approved it" is a claim about a document that
+may since have changed.
+
+**How it is enforced.** The transition service writes a version snapshot in the same transaction
+as the status change. The snapshot is the whole budget, not a diff, so reproducing it requires no
+replay.
+
+**Evidence.** Covered by the transition tests and by `smoke-test.ps1`, which walks a budget through
+its lifecycle and asserts a version exists at each stage.
+
+**To demonstrate.** Open any approved budget and view its version history. Each entry is the budget
+exactly as it stood at that transition.
+
+---
+
+## LCK-01 — Locked baseline
+
+**The control.** A locked budget is terminal. It cannot be amended by anyone, including the CFO who
+locked it.
+
+**What it prevents.** The baseline moving under reports already issued. Variance reporting measures
+against the baseline; if the baseline can change, every variance report ever produced becomes
+unreproducible.
+
+**How it is enforced.** `LOCKED` has no outbound transitions. The check runs before the legal-
+transition check, so a locked budget produces `CONFLICT` rather than a confusing message about
+which transitions are available. Locking requires the CFO role.
+
+The onward routes are a **reforecast** or a **budget transfer** — both of which leave the baseline
+intact and are themselves recorded.
+
+**Evidence.** `api/src/routes/budgets.transition.test.ts` asserts a locked budget refuses to reopen
+and that no transaction is opened. `smoke-test.ps1` confirms it against a live stack.
+
+**To demonstrate.** Attempt any transition on a locked budget.
+
+---
+
+## Supporting mechanisms
+
+Not registered as controls in their own right, but each supports the ones above.
+
+| Mechanism                     | Why it matters                                                                                                                                                 |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Role-based access control** | 30 permissions across 6 roles, checked server-side per route. See the user manual.                                                                             |
+| **Immediate deactivation**    | The user is re-read from the database on every request, so a deactivated account loses access at once rather than at token expiry.                             |
+| **Canonical audit payloads**  | `changes` is stored as canonical JSON with sorted keys and hashed over those exact bytes. Storing it as JSONB would reorder keys and break every verification. |
+| **Period locking**            | Closed periods refuse new actuals, so a restated prior period cannot silently change a published variance.                                                     |
+| **Deterministic simulation**  | Monte Carlo takes an explicit seed, so a published contingency figure can be re-derived exactly.                                                               |
+| **Money precision**           | Decimal throughout, banker's rounding, remainder-distributing allocation. Parts always sum back to the whole.                                                  |
+
+---
+
+## What this platform does not control
+
+Stated because an assurance document that lists only strengths is not assurance.
+
+- **No maker–checker on reference data.** Chart of accounts and business-unit imports are applied
+  by an administrator without a second approval. The import is audited and validates before
+  writing, but it is not dual-controlled.
+- **No segregation between administration and finance.** The platform prevents an administrator
+  from approving what they prepared; it does not prevent one person holding both an administrator
+  account and a finance account. That is an account-provisioning policy, and the user manual says
+  so directly.
+- **No enforced verification schedule.** AUD-01 detects tampering when verification runs. Nothing
+  in the platform compels it to run.
+- **No control over the accounting system upstream.** Actuals are loaded from it and it remains the
+  source of truth. Controls over how actuals are produced belong there.
+
+---
+
+## For an auditor
+
+The fastest path to satisfying yourself, in order:
+
+1. `GET /api/v1/governance/controls` — the live register, from the running system.
+2. `POST /api/v1/governance/audit/verify` — chain integrity, with a count of entries checked.
+3. Run `verify-audit-tamper-detection.ps1` and watch it tamper and detect. This is the one worth
+   watching rather than reading about.
+4. Sample any approved budget: its version history, and the distinct identities recorded as
+   preparer, submitter and approver.
+5. Attempt a self-approval as the preparer. Observe the refusal.
+
+Steps 3 and 5 are the ones that distinguish controls that work from controls that are documented.
