@@ -45,7 +45,15 @@ try {
   // A malformed .env is the API's problem to report, not the runner's.
 }
 
-/** Order matters: the broad smoke test first, tamper detection last. */
+/**
+ * Order matters: the broad smoke test first, tamper detection last because it
+ * deliberately corrupts audit rows and anything after it would run against a
+ * damaged chain.
+ *
+ * The UI journey needs a browser, so it is not in the default set - a CI runner
+ * without Chrome would fail for want of a browser rather than for a defect.
+ * Name it explicitly to run it:  node scripts/run-e2e.mjs ui-journey
+ */
 const ALL_SUITES = [
   'journey-lifecycle.mjs',
   'smoke-test.ps1',
@@ -55,6 +63,9 @@ const ALL_SUITES = [
   'smoke-test-pilot.ps1',
   'verify-audit-tamper-detection.ps1',
 ];
+
+/** Suites that are runnable but excluded from the default set. */
+const OPTIONAL_SUITES = ['ui-journey/journey-ui.mjs'];
 
 /**
  * PowerShell 7 is cross-platform, so these suites can run on a Linux CI runner
@@ -78,9 +89,13 @@ function findShell() {
 
 const requested = process.argv.slice(2);
 /** A bare name means a PowerShell suite; .mjs suites are named in full. */
+const ALIASES = { 'ui-journey': 'ui-journey/journey-ui.mjs' };
+
 function normalise(name) {
+  if (ALIASES[name]) return ALIASES[name];
   if (name.endsWith('.ps1') || name.endsWith('.mjs')) return name;
-  const asNode = ALL_SUITES.find((s) => s === `${name}.mjs`);
+  const known = [...ALL_SUITES, ...OPTIONAL_SUITES];
+  const asNode = known.find((s) => s === `${name}.mjs` || s.endsWith(`/${name}.mjs`));
   return asNode ?? `${name}.ps1`;
 }
 

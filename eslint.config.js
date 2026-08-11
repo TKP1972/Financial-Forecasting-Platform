@@ -86,6 +86,8 @@ export default tseslint.config(
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
         WebSocket: 'readonly',
+        // The UI journey decodes base64 screenshots before writing them.
+        Buffer: 'readonly',
       },
     },
   },

@@ -151,6 +151,31 @@ mutating seeded state. **`smoke-test-rolling.ps1` is the exception**: it closes 
 consumes the seeded cycle's open periods and `exit 1`s once fewer than two remain. It needs a
 fresh `npm run db:reset` to run again, and in CI it reads as a failure rather than a skip.
 
+**The UI journey drives a real browser.** `npm run test:ui` (or
+`node scripts/run-e2e.mjs ui-journey`) signs in as each of the five seeded roles through the
+real login form and clicks every nav item, the pricing calculator and the workflow buttons —
+44 assertions. It is **not** in the default `test:e2e` set, because a CI runner without Chrome
+would fail for want of a browser rather than for a defect. `--headed` to watch it.
+
+Three rules make it worth having rather than a screenshot generator:
+
+- **Clicks are real mouse events at real coordinates**, and `document.elementFromPoint` must
+  return the element aimed at. `element.click()` fires the handler on a control that is
+  zero-sized, off-screen or covered by an overlay — all broken for a human.
+- **Effects are verified against the API, never against the screen that caused them.** A UI
+  rendering an optimistic success over a failed mutation passes any assertion made by reading
+  the page.
+- **A 4xx is not automatically a defect.** An Analyst getting 403 from the audit trail is the
+  control _working_; what decides defect-or-not is whether the screen explains it. So the
+  assertion is "every refusal is explained", not "no refusals". Asserting the latter would have
+  reported three correct behaviours as bugs — it did, on the first draft.
+
+Its own trap: it signs in a dozen or more times and **`POST /auth/login` is 10/minute**. The
+symptom is indistinguishable from broken auth — the form just stays put. `signIn` backs off on
+429, the suite signs in once per role rather than once per assertion, and the deliberate
+rate-limit section runs **last** and then waits for the limiter to clear so the next suite is
+not failed by it.
+
 **Route tests use `app.inject()`, not a running server.** `packages/api/src/**/*.test.ts` build
 the real Fastify app in-process — real router, real auth plugin, real error mapper — and fake
 only the database, by `vi.mock`-ing `../db.js`. No port, no Docker, no seed data. Helpers live
