@@ -120,6 +120,9 @@ export interface DashboardData {
     baseCurrency: string;
     submissionDeadline: string;
     daysToSubmission: number;
+    /** Latest period with recorded actuals, and how many the year has. */
+    periodsElapsed: number;
+    periodsInYear: number;
   } | null;
   message?: string;
   budget?: {

@@ -131,15 +131,36 @@ export default function Dashboard() {
             caption="Real spend, outside the utilisation figure"
           />
         ) : null}
-        <StatTile
-          label="Days to submission"
-          value={integer(Math.abs(data.cycle.daysToSubmission))}
-          caption={
-            deadlinePassed
-              ? `Deadline passed ${formatDate(data.cycle.submissionDeadline)}`
-              : `Due ${formatDate(data.cycle.submissionDeadline)}`
-          }
-        />
+        {/*
+          Two different questions, depending on where the cycle is.
+
+          While budgets are still being collected, the deadline is the thing
+          that matters and a countdown is the right headline. Once it has
+          passed, days-since is not actionable - the tile used to read "Days to
+          submission 284" above "Deadline passed 31 Oct 2025", which is both
+          true and useless.
+
+          In execution the useful figure is how far through the year the cycle
+          is, sitting next to utilisation: 60% consumed is comfortable at 58%
+          elapsed and alarming at 20%, and the dashboard gave no way to tell.
+        */}
+        {deadlinePassed ? (
+          <StatTile
+            label="Cycle progress"
+            value={`Period ${integer(data.cycle.periodsElapsed)} of ${integer(data.cycle.periodsInYear)}`}
+            caption={
+              data.cycle.periodsInYear > 0
+                ? `${percent(data.cycle.periodsElapsed / data.cycle.periodsInYear, { fractionDigits: 0 })} of the year elapsed — compare with utilisation`
+                : 'Submission closed'
+            }
+          />
+        ) : (
+          <StatTile
+            label="Days to submission"
+            value={integer(data.cycle.daysToSubmission)}
+            caption={`Due ${formatDate(data.cycle.submissionDeadline)}`}
+          />
+        )}
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
@@ -191,7 +212,7 @@ export default function Dashboard() {
 
         <Card
           title="Risk exposure"
-          subtitle={`${integer(risk?.openRisks ?? 0)} open or monitored risks`}
+          subtitle={`${integer(risk?.openRisks ?? 0)} open or monitored risks across the business — the register is not held per budget cycle`}
           actions={
             <Link to="/risk" className="btn btn-ghost">
               Register
@@ -241,7 +262,10 @@ export default function Dashboard() {
           </table>
         </Card>
 
-        <Card title="Weighted pipeline" subtitle="Active pursuits, weighted by probability of win">
+        <Card
+          title="Weighted pipeline"
+          subtitle="Active pursuits across the business, weighted by probability of win. Not limited to the cycle above — a bid is not owned by a budget year."
+        >
           <p className="text-2xl font-semibold tabular-nums tracking-tight text-accent-700 dark:text-accent-300">
             {money0(pipeline?.weightedValue, currency)}
           </p>

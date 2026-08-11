@@ -482,10 +482,18 @@ try {
   // Only comparable when the dashboard's own cycle is the one with the spend.
   // The dashboard reports the current cycle; the pack was resolved above.
   const sameCycle = pack !== null && dash.cycle?.id === current?.id;
+  // The pack is built from budget lines, so its `actual` counts only spend a
+  // line claims; anything on an unbudgeted pair is reported separately. The two
+  // screens agree once that is added back. Asserting plain equality passed only
+  // while the seed happened to have no unbudgeted spend, and broke the moment
+  // real fixtures created some - which is how the omission was found.
+  const packTotal = pack
+    ? Number(pack.summary.actual) + Number(pack.summary.unbudgetedActual ?? 0)
+    : 0;
   check(
-    'the dashboard and the leadership pack report the same actual spend',
-    !sameCycle || Math.abs(dashboardCompared - Number(pack.summary.actual)) < 1,
-    `dashboard=${dashboardCompared} pack=${pack?.summary?.actual} sameCycle=${sameCycle}`,
+    'the dashboard and the leadership pack account for the same spend',
+    !sameCycle || Math.abs(dashboardCompared - packTotal) < 1,
+    `dashboard=${dashboardCompared} pack=${pack?.summary?.actual} + unbudgeted=${pack?.summary?.unbudgetedActual} = ${packTotal}`,
   );
 
   check(

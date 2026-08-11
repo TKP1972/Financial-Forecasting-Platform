@@ -24,9 +24,32 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
   app.get('/dashboard', { onRequest: [app.requirePermission('report:read')] }, async (request) => {
     const query = z.object({ cycleId: z.string().optional() }).parse(request.query);
 
+    /**
+     * The cycle the dashboard shows when the caller does not name one.
+     *
+     * "Newest fiscal year" is the wrong default. Next year's cycle is created
+     * while this year is still being executed - that is the normal planning
+     * rhythm - and the moment it exists, a dashboard ordered by fiscal year
+     * abandons the year with all the spend in it and shows a screen of zeros.
+     *
+     * A cycle in execution is OPEN or CONSOLIDATING. Prefer the most recent of
+     * those; fall back to the newest of anything only when none is running,
+     * which is the genuinely empty state a new deployment starts in.
+     */
     const cycle = query.cycleId
       ? await prisma.budgetCycle.findUnique({ where: { id: query.cycleId } })
-      : await prisma.budgetCycle.findFirst({ orderBy: { fiscalYear: 'desc' } });
+      : // A cycle that is being executed: open, and with spend recorded against
+        // it. Ordering by status alone is not enough - a cycle can be opened
+        // years ahead of its first actual, and this landed on one.
+        ((await prisma.budgetCycle.findFirst({
+          where: { status: { in: ['OPEN', 'CONSOLIDATING'] }, actuals: { some: {} } },
+          orderBy: { fiscalYear: 'desc' },
+        })) ??
+        (await prisma.budgetCycle.findFirst({
+          where: { status: { in: ['OPEN', 'CONSOLIDATING'] } },
+          orderBy: { fiscalYear: 'desc' },
+        })) ??
+        (await prisma.budgetCycle.findFirst({ orderBy: { fiscalYear: 'desc' } })));
 
     if (!cycle) {
       return {
@@ -53,6 +76,21 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
      * both sides to approved units, read a correct 79%. Two headline screens,
      * $531m apart on the same number.
      */
+    /**
+     * How far through the year the cycle actually is, taken from the data
+     * rather than the calendar: the latest period that has any actuals.
+     *
+     * This is what makes the utilisation figure readable. 60% consumed is
+     * either comfortable or alarming depending entirely on whether the year is
+     * 58% or 20% gone, and the dashboard previously offered no way to tell.
+     */
+    const elapsedAgg = await prisma.actual.aggregate({
+      where: { cycleId: cycle.id },
+      _max: { periodIndex: true },
+    });
+    const periodsInYear = PERIODS_PER_YEAR[cycle.periodType];
+    const periodsElapsed = elapsedAgg._max.periodIndex ?? 0;
+
     const approvedUnitIds = [
       ...new Set(
         budgetsForCycle
@@ -154,6 +192,8 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
           daysToSubmission: Math.ceil(
             (cycle.submissionDeadline.getTime() - Date.now()) / 86_400_000,
           ),
+          periodsElapsed,
+          periodsInYear,
         },
         budget: {
           totalSubmitted: toMoneyString(submittedTotal),
@@ -419,6 +459,14 @@ interface LeadershipPack {
     commitment: string;
     variance: string;
     variancePercent: number | null;
+    /**
+     * Spend on a unit-and-account pair with no budget line at all.
+     *
+     * The pack is built from budget lines outwards, so this money was silently
+     * dropped from every total - a variance report that omits unbudgeted spend
+     * omits the thing it most exists to surface.
+     */
+    unbudgetedActual: string;
   };
   byBusinessUnit: Array<{
     code: string;
@@ -511,27 +559,83 @@ async function buildLeadershipPack(
     });
   }
 
-  const inputs: VarianceInput[] = budgets.flatMap((budget) =>
-    budget.lines.map((line) => {
+  /**
+   * Money spent where nothing was budgeted.
+   *
+   * `inputs` below is built from budget lines, looking up the matching actual
+   * for each. Any actual on a unit-and-account pair that no line covers is
+   * therefore invisible to every total in this pack. That is precisely the
+   * spend a reviewer most needs to see, so it is counted here and reported
+   * alongside rather than folded in - adding it to `actual` would make the
+   * variance look like overspend against a budget that was never set.
+   */
+  const budgetedPairs = new Set(
+    budgets.flatMap((budget) =>
+      budget.lines.map((line) => `${budget.businessUnitId}|${line.accountId}`),
+    ),
+  );
+  const approvedUnitIds = new Set(budgets.map((b) => b.businessUnitId));
+  let unbudgetedActual = 0;
+  for (const [key, value] of actualByKey.entries()) {
+    const unitId = key.split('|')[0] ?? '';
+    if (approvedUnitIds.has(unitId) && !budgetedPairs.has(key)) {
+      unbudgetedActual += value.amount;
+    }
+  }
+
+  /**
+   * One row per business unit and account, not per budget line.
+   *
+   * Actuals are recorded against a unit and an account, so they join on that
+   * pair. Building a row per *line* meant that a unit with two approved budgets
+   * touching the same account got the pair's whole actual counted once for
+   * each, silently inflating spend and turning a favourable variance
+   * unfavourable. A unit having several budgets is ordinary - a base budget and
+   * a supplementary, or one per programme - so this is not an edge case.
+   *
+   * Budgets are summed across lines for the same pair, which is the correct
+   * denominator: two budgets authorising the same account authorise their sum.
+   */
+  const budgetByPair = new Map<
+    string,
+    { budget: number; businessUnitId: string; accountId: string; label: string; type: string }
+  >();
+
+  for (const budget of budgets) {
+    for (const line of budget.lines) {
+      const pair = `${budget.businessUnitId}|${line.accountId}`;
       const budgetToDate = line.periods
         .filter((p) => p.periodIndex <= through)
         .reduce((acc, p) => acc + Number(p.amount), 0);
-      const actual = actualByKey.get(`${budget.businessUnitId}|${line.accountId}`) ?? {
-        amount: 0,
-        commitment: 0,
-      };
-      return {
-        key: `${budget.businessUnitId}:${line.accountId}`,
-        label: `${line.account.code} ${line.account.name}`,
-        accountType: line.account.type as never,
-        businessUnitId: budget.businessUnitId,
-        accountId: line.accountId,
-        budget: budgetToDate.toFixed(4),
-        actual: actual.amount.toFixed(4),
-        commitment: actual.commitment.toFixed(4),
-      };
-    }),
-  );
+
+      const existing = budgetByPair.get(pair);
+      if (existing) {
+        existing.budget += budgetToDate;
+      } else {
+        budgetByPair.set(pair, {
+          budget: budgetToDate,
+          businessUnitId: budget.businessUnitId,
+          accountId: line.accountId,
+          label: `${line.account.code} ${line.account.name}`,
+          type: line.account.type,
+        });
+      }
+    }
+  }
+
+  const inputs: VarianceInput[] = [...budgetByPair.entries()].map(([pair, entry]) => {
+    const actual = actualByKey.get(pair) ?? { amount: 0, commitment: 0 };
+    return {
+      key: `${entry.businessUnitId}:${entry.accountId}`,
+      label: entry.label,
+      accountType: entry.type as never,
+      businessUnitId: entry.businessUnitId,
+      accountId: entry.accountId,
+      budget: entry.budget.toFixed(4),
+      actual: actual.amount.toFixed(4),
+      commitment: actual.commitment.toFixed(4),
+    };
+  });
 
   const report = buildVarianceReport(inputs, { groupBy: 'BUSINESS_UNIT' });
   const unitById = new Map(budgets.map((b) => [b.businessUnitId, b.businessUnit]));
@@ -595,6 +699,7 @@ async function buildLeadershipPack(
       commitment: report.totals.commitment,
       variance: report.totals.variance,
       variancePercent: report.totals.variancePercent,
+      unbudgetedActual: toMoneyString(unbudgetedActual),
     },
     byBusinessUnit: report.groups.map((group) => {
       const unit = unitById.get(group.key);
