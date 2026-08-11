@@ -123,6 +123,16 @@ once will bite again; a check that fails the build will not.
 - **`npm run db:reset` against a running API leaves it broken.** Dropping and recreating the
   schema invalidates the connection pool's cached statements; reads keep working and writes start
   returning 500. Restart the API after a reset, or reset before bringing the stack up.
+- **A permission that guards nothing passes every consistency check.**
+  `docs/user-manual.md`'s matrix is machine-checked against `rbac.ts`, and four permissions sat
+  in both for months while no route required any of them — the check compares two matrices, and
+  never asks whether a permission is reached. `pricing:approve` and `report:publish_leadership`
+  became real controls (PRC-01, PUB-01); `budget:delete` and `actuals:read` were removed. When
+  adding a permission, add the route that requires it in the same change. To audit this, scan
+  the api and web sources for each permission string — but note that `budget:submit`/`approve`/
+  `lock` are enforced through `TRANSITION_MIN_ROLE` seniority rather than by name, so a naive
+  scan reports them as gaps. Verify before reporting; that check produced three false positives
+  out of six on its first run.
 - **A redaction applied per call site will be missed at one of them.** `redactMargin` gates
   the profit position on the pricing responses, and was applied on three of the four handlers
   that carry a saved model's figures. The fourth, `GET /pricing/pursuits`, selected
