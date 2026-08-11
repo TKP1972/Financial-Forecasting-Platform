@@ -64,7 +64,8 @@ npm run db:migrate      # create + apply a migration (development)
 npm run db:deploy       # apply existing migrations (production/CI)
 npm run db:seed         # load the worked example (idempotent)
 npm run db:studio       # browse the data
-npm run db:reset        # drop, re-migrate, re-seed — DESTRUCTIVE
+npm run db:reset:stack  # drop, re-migrate, re-seed, restart the API — DESTRUCTIVE
+npm run db:reset        # the same without the restart; only safe if the API is stopped
 ```
 
 Prisma commands run from the repo root so they pick up the single `.env`; the schema path is

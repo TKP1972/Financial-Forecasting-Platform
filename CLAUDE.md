@@ -120,9 +120,22 @@ once will bite again; a check that fails the build will not.
   detour: a journey suite reported a stale approval that had been fixed and unit-tested, because
   the image predated the fix by 21 minutes. **Rebuild the api image before trusting an e2e result
   after changing `packages/api`.**
-- **`npm run db:reset` against a running API leaves it broken.** Dropping and recreating the
-  schema invalidates the connection pool's cached statements; reads keep working and writes start
-  returning 500. Restart the API after a reset, or reset before bringing the stack up.
+- **`npm run db:reset` against a running API leaves it broken, and can silently corrupt what it
+  writes.** Dropping and recreating the schema invalidates the connection pool's cached
+  statements; reads keep working and writes start returning 500. **Worse, a write that does
+  succeed in that window can be stored mis-encoded.** On 2026-08-11 a reset at 16:01 was followed
+  at 16:04 by two audit entries whose summaries stored `ΓÇö` where the source row held a proper
+  em-dash (U+2014) — the UTF-8 bytes read back through a single-byte codepage. The hash was
+  computed over the correct string and the corrupted one was stored, so **the audit chain broke
+  permanently at that sequence**: it cannot be repaired, which is the control working exactly as
+  intended. Everything else was fine — the same code path, same container and same value round-trip
+  correctly once the pool has rotated, so it reproduces only inside that window.
+
+  **Use `npm run db:reset:stack`**, which resets and restarts the API so the window cannot open.
+  Plain `db:reset` is only safe with the API stopped. If `verify-audit-tamper-detection.ps1` fails
+  with "chain is intact to begin with" after a reset, this is the cause, and the only fix is
+  another reset — the chain is deliberately unrepairable. Restart the API after a reset, or reset before bringing the stack up.
+
 - **A permission that guards nothing passes every consistency check.**
   `docs/user-manual.md`'s matrix is machine-checked against `rbac.ts`, and four permissions sat
   in both for months while no route required any of them — the check compares two matrices, and
