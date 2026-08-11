@@ -136,6 +136,28 @@ once will bite again; a check that fails the build will not.
   with "chain is intact to begin with" after a reset, this is the cause, and the only fix is
   another reset — the chain is deliberately unrepairable. Restart the API after a reset, or reset before bringing the stack up.
 
+- **Structural correctness is not plausibility, and no test asserted the latter.** Three
+  reporting defects survived 1,201 unit tests, 7 e2e suites and 4 browser journeys, because each
+  produced a well-formed number of the right type with no error. What caught them was reading the
+  figure and asking whether it could be true: 333.6% utilisation, minus $1.42bn remaining, every
+  RAG indicator red, a board pack claiming +39.5% favourable. Their causes were unrelated —
+  prior-year history attributed to the current cycle, a ratio dividing all units' actuals by
+  approved-only budgets, and a report defaulting to a full-year budget against year-to-date
+  actuals. `journey-operations.mjs` §5 now range-checks the headline figures against seeded data.
+  Keep those bounds **loose**: a tight one breaks on every reasonable seed change and gets
+  deleted, a loose one only fires when something is genuinely broken.
+- **A plausibility check on the wrong subject cries wolf.** That section first took the newest
+  OPEN cycle. `/cycles` returns newest fiscal year first and the e2e suites leave fixture cycles
+  years ahead with budgets and no spend, so it picked one and reported 100% variance and every
+  unit red — both correct for a cycle that has not started, and both looking exactly like the
+  defects it exists to catch. It now resolves the subject by finding a cycle that actually has
+  actuals.
+- **`cycleId` on an actual means "belongs to", not "is context for".** The seed attached two prior
+  years of forecasting history to the current cycle, so every aggregation `where: { cycleId }`
+  summed two and a half years against a one-year budget. `periodKey` distinguishes the years
+  (`FY2024-P01` vs `FY2026-P01`); `periodIndex` does not, and nothing filtered on the key. History
+  now lives on its own closed prior cycles, which is what an organisation actually has. Note the
+  API already refused to import a prior-year actual into a cycle — only the seed could create it.
 - **A permission that guards nothing passes every consistency check.**
   `docs/user-manual.md`'s matrix is machine-checked against `rbac.ts`, and four permissions sat
   in both for months while no route required any of them — the check compares two matrices, and

@@ -12,16 +12,17 @@ It exists because in this workspace, **almost every real defect was found by run
 not by reading or reasoning about it** — and in every case a full test suite, a green CI, and a
 careful review had already passed over the same code.
 
-| Defect                                                | Found by                                         | What had already passed         |
-| ----------------------------------------------------- | ------------------------------------------------ | ------------------------------- |
-| `npm run test:e2e` executed **no suites at all**      | Running it                                       | CI, 1000+ unit tests            |
-| Documented quick start could not boot                 | Following the README from a cold start           | All of the above                |
-| One e2e suite had no rate-limit backoff               | Running the full set back-to-back, not one suite | The suite passing alone         |
-| Demo data buried under test fixtures                  | Opening the UI and looking                       | Every API test                  |
-| `git status` writing to `.git/index`                  | Running a test that asserted the property        | A read-only code review         |
-| Display rounding disagreeing with the engine          | Comparing the two outputs directly               | Both sides' own tests           |
-| An API advertising 12 periods where it enforced 36    | Behaving as a naive client and being refused     | Both endpoints' tests           |
-| A field-level permission enforced only in the browser | Asking the API with a non-holder's own token     | The screen showing "Restricted" |
+| Defect                                                | Found by                                          | What had already passed                            |
+| ----------------------------------------------------- | ------------------------------------------------- | -------------------------------------------------- |
+| `npm run test:e2e` executed **no suites at all**      | Running it                                        | CI, 1000+ unit tests                               |
+| Documented quick start could not boot                 | Following the README from a cold start            | All of the above                                   |
+| One e2e suite had no rate-limit backoff               | Running the full set back-to-back, not one suite  | The suite passing alone                            |
+| Demo data buried under test fixtures                  | Opening the UI and looking                        | Every API test                                     |
+| `git status` writing to `.git/index`                  | Running a test that asserted the property         | A read-only code review                            |
+| Display rounding disagreeing with the engine          | Comparing the two outputs directly                | Both sides' own tests                              |
+| An API advertising 12 periods where it enforced 36    | Behaving as a naive client and being refused      | Both endpoints' tests                              |
+| A field-level permission enforced only in the browser | Asking the API with a non-holder's own token      | The screen showing "Restricted"                    |
+| Every money figure roughly 4x too high                | Reading the number and asking if it could be true | 1,201 unit tests, 7 e2e suites, 4 browser journeys |
 
 None of these were subtle. All were invisible from inside.
 
@@ -100,6 +101,33 @@ And **verify the effect against a different source than the one that caused it**
 rendering an optimistic success over a failed mutation passes every assertion made by reading
 that screen.
 
+### Ask whether the number could be true
+
+Structural correctness is not plausibility, and almost nothing asserts the latter. A figure can
+have the right type, the right shape, no error anywhere, and still be impossible.
+
+Three reporting defects in this workspace survived a full suite because each produced a
+well-formed number. What caught them was reading the output: 333% utilisation, a negative
+remaining budget larger than the budget, every status indicator red, a board pack claiming a 39.5%
+favourable variance for a business spending to plan. The causes were unrelated to each other; the
+symptom was the same, and so was the detection method.
+
+For anything that computes a figure a human will act on, add a **loose range check** against known
+demonstration data — a proportion between 0 and 1.5, a total no more than twice its own
+denominator, not every indicator the same colour. Keep it loose on purpose: a tight bound breaks
+on every reasonable data change and gets deleted, while a loose one only fires when something is
+genuinely broken.
+
+Two cautions, both learned by getting them wrong:
+
+- **Check the right subject.** The first version of that check took "the newest open cycle" and
+  landed on a test fixture with a budget and no spend, where 100% variance and all-red are
+  correct. A plausibility check that cries wolf is worse than none. Resolve the subject by the
+  property you need — the cycle that _has_ data — rather than by position in a list.
+- **Two screens showing one concept must be compared to each other.** Both figures were correct
+  from their own inputs; only putting them side by side showed a $531m gap. Neither suite could
+  have found it, because each checked one screen against itself.
+
 ### A refusal is not automatically a defect
 
 Judge a 4xx by what the user is shown, not by its presence in the network log.
@@ -112,6 +140,17 @@ a login rate limiter, each of which already named the reason on screen.
 
 The corollary matters more: **before reporting a refusal as a defect, go and read what the user
 sees.** Reporting three non-problems costs the owner's trust in the next real finding.
+
+### Never discard the evidence of a failure
+
+Piping a run through `tail`, `grep` or `>/dev/null` while it is failing destroys the only account
+of what happened. This was done three times in one session here: a `tail -14` that hid which
+assertion failed, a suppressed `db:reset` that had silently been refused by a safety gate while
+"reseeding" was reported as done, and a `tail -12` that lost the reason a suite failed — leaving
+"unexplained, passes now" as the only honest answer available afterwards.
+
+**Write the full output to a file and read the file.** Summarise from the log, not instead of it.
+The cost of keeping it is nothing; the cost of losing it is either a wrong theory or a second run.
 
 ### Run it twice, and run it after everything else
 
@@ -151,3 +190,5 @@ deduction, this skill has nothing to add and you should move on.
 - [ ] Any restriction visible in a UI was confirmed at the API with the restricted user's token
 - [ ] Every refusal found was judged by what the user is shown, before being called a defect
 - [ ] A claim the product makes **in its own words** to the user was checked against the facts
+- [ ] Every headline figure was read and judged **possible**, not merely well-formed
+- [ ] Where two screens report one concept, they were compared **to each other**

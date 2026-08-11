@@ -400,6 +400,117 @@ try {
       `code=${importRefused.body?.error?.code}`,
     );
   }
+
+  // ------------------------------------------------------------------------
+  section('5. The headline numbers are believable');
+
+  /**
+   * Plausibility, which is not a property any other test asserts.
+   *
+   * Three reporting defects survived 1,201 unit tests, seven end-to-end suites
+   * and four browser journeys. Every one was structurally correct — right
+   * shape, right types, no error — and every one was obviously wrong to anyone
+   * who read the number:
+   *
+   *   - 333.6% utilisation and minus $1.42bn remaining, because two and a half
+   *     years of history were attributed to a one-year cycle
+   *   - the dashboard and the leadership pack $531m apart on the same figure,
+   *     because one compared every unit against approved-only budgets
+   *   - a leadership pack reporting +39.5% favourable, because it compared a
+   *     full-year budget against year-to-date actuals
+   *
+   * These are deliberately loose range checks against seeded demonstration
+   * data. They are not accounting assertions — the arithmetic is tested in the
+   * engine — they are a smoke alarm for a figure that has stopped meaning
+   * anything. A tight bound would break on every reasonable seed change and get
+   * deleted; a loose one only fires when something is genuinely broken.
+   */
+  /**
+   * A cycle that has actuals, resolved rather than assumed.
+   *
+   * The first draft took the newest OPEN cycle. `/cycles` returns newest fiscal
+   * year first, and the e2e suites leave behind fixture cycles years in the
+   * future with budgets and no spend - so it picked one of those and reported
+   * 100% favourable variance and every unit red. Both were *correct* for a
+   * cycle that has not started, and both looked exactly like the defects this
+   * section exists to catch. A plausibility check on the wrong subject is worse
+   * than none, because it cries wolf.
+   */
+  const allCycles = (await api(tokens.analyst, 'GET', '/cycles')).body.data;
+  let current = null;
+  let pack = null;
+  for (const candidate of allCycles) {
+    const built = (
+      await api(tokens.financeManager, 'GET', `/reports/leadership-pack?cycleId=${candidate.id}`)
+    ).body?.data;
+    if (built && Number(built.summary?.actual ?? 0) > 0) {
+      current = candidate;
+      pack = built;
+      break;
+    }
+  }
+
+  const dash = (await api(tokens.analyst, 'GET', '/reports/dashboard')).body.data;
+
+  check(
+    'a cycle with recorded spend exists to assess',
+    pack !== null,
+    `checked ${allCycles.length} cycle(s); none had actuals`,
+  );
+
+  if (!pack) {
+    console.log('  NOTE  no cycle has actuals; the ratio checks below need one');
+  }
+
+  const utilisation = dash.expenditure?.utilisation;
+  check(
+    'utilisation is a proportion of a budget, not a multiple of one',
+    utilisation === null || utilisation === undefined || (utilisation >= 0 && utilisation <= 1.5),
+    `utilisation=${utilisation == null ? 'null' : (utilisation * 100).toFixed(1) + '%'}`,
+  );
+
+  check(
+    'nothing has consumed several times its approved budget',
+    Number(dash.expenditure?.actual ?? 0) <= Number(dash.budget?.totalApproved ?? 0) * 2,
+    `actual=${dash.expenditure?.actual} approved=${dash.budget?.totalApproved}`,
+  );
+
+  // The $531m defect, asserted against the live stack rather than in isolation:
+  // the two screens must agree on the figure they both claim to report.
+  const dashboardCompared =
+    Number(dash.expenditure?.actual ?? 0) - Number(dash.expenditure?.unapprovedActual ?? 0);
+  // Only comparable when the dashboard's own cycle is the one with the spend.
+  // The dashboard reports the current cycle; the pack was resolved above.
+  const sameCycle = pack !== null && dash.cycle?.id === current?.id;
+  check(
+    'the dashboard and the leadership pack report the same actual spend',
+    !sameCycle || Math.abs(dashboardCompared - Number(pack.summary.actual)) < 1,
+    `dashboard=${dashboardCompared} pack=${pack?.summary?.actual} sameCycle=${sameCycle}`,
+  );
+
+  check(
+    'the pack reports through a period that has actuals, not the whole year',
+    pack === null || (pack.throughPeriod >= 1 && pack.throughPeriod <= pack.periodsInYear),
+    `through=${pack?.throughPeriod} of ${pack?.periodsInYear}`,
+  );
+
+  // Budget-to-date and actual-to-date must cover the same months. If the pack
+  // reverted to a full-year denominator, this ratio would leap.
+  const packVariance = pack?.summary?.variancePercent ?? null;
+  check(
+    'budget to date and actual to date cover the same months',
+    packVariance === null || Math.abs(packVariance) <= 0.5,
+    `variance=${packVariance === null ? 'null' : (packVariance * 100).toFixed(1) + '%'} — a large favourable swing usually means a full-year budget against part-year actuals`,
+  );
+
+  // Every unit red is what the mis-attributed history produced. One or two red
+  // units is a business problem; all of them is a data problem.
+  const rags = (pack?.byBusinessUnit ?? []).map((u) => u.rag);
+  check(
+    'not every business unit is red',
+    rags.length === 0 || rags.some((r) => r !== 'RED'),
+    `rag=${rags.join(',') || 'none'}`,
+  );
 } catch (error) {
   failed += 1;
   console.log(`\n  ERROR  ${error.message}`);
