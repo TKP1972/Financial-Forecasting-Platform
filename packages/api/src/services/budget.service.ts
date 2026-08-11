@@ -18,7 +18,7 @@ import {
   assertSeparationOfDuties,
   assertWithinDelegatedAuthority,
   atLeast,
-  buildFiscalYear,
+  buildPeriodAxis,
   periodKey as makePeriodKey,
   type PeriodType,
   toMoneyString,
@@ -26,7 +26,6 @@ import {
   type Role,
 } from '@ffp/shared';
 import type { Prisma } from '@prisma/client';
-import { multiYearPeriodKeys } from '@ffp/engine';
 import { prisma, type Tx } from '../db.js';
 import { appendAuditEntry } from './audit.service.js';
 import type { AuthenticatedUser } from './auth.service.js';
@@ -64,12 +63,12 @@ function periodAxisFor(cycle: {
   periodType: PeriodType;
   horizonYears: number;
 }): Array<{ key: string }> {
-  if (cycle.horizonYears <= 1) {
-    return buildFiscalYear(cycle.fiscalYear, cycle.periodType).map((p) => ({ key: p.key }));
-  }
-  return multiYearPeriodKeys(cycle.fiscalYear, cycle.horizonYears, cycle.periodType).map((key) => ({
-    key,
-  }));
+  // One helper for both the single-year and multi-year case, and the same one
+  // GET /cycles/:id uses to advertise the axis. They were separate before, and
+  // they disagreed for multi-year cycles.
+  return buildPeriodAxis(cycle.fiscalYear, Math.max(cycle.horizonYears, 1), cycle.periodType).map(
+    (p) => ({ key: p.key }),
+  );
 }
 
 /** Sum every period of every line. The budget total is derived, never entered. */

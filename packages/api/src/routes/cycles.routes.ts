@@ -8,7 +8,7 @@
 import type { FastifyInstance } from 'fastify';
 import {
   AppError,
-  buildFiscalYear,
+  buildPeriodAxis,
   fiscalConfigOf,
   createBudgetCycleSchema,
   publishGuidanceSchema,
@@ -42,6 +42,10 @@ export async function registerCycleRoutes(app: FastifyInstance): Promise<void> {
         submissionDeadline: cycle.submissionDeadline,
         approvalDeadline: cycle.approvalDeadline,
         baseCurrency: cycle.baseCurrency,
+        // Without this a client cannot tell a one-year cycle from a Medium Term
+        // Plan, and therefore cannot know how many period amounts a budget for
+        // it needs. Its absence sent a caller into a guaranteed 400.
+        horizonYears: cycle.horizonYears,
         budgetCount: cycle._count.budgets,
         assumptionCount: cycle._count.assumptions,
         targetCount: cycle._count.targets,
@@ -77,7 +81,18 @@ export async function registerCycleRoutes(app: FastifyInstance): Promise<void> {
 
     // The cycle's own calendar, not the deployment default - an old cycle keeps
     // the fiscal year it was created under.
-    const periods = buildFiscalYear(cycle.fiscalYear, cycle.periodType, fiscalConfigOf(cycle));
+    //
+    // Spans the whole horizon, not one year. This advertised 12 periods for a
+    // three-year cycle whose budgets require 36 amounts, so a client building a
+    // data-entry form from it produced an invalid budget every time. Uses the
+    // same helper the budget validator uses, so the axis a caller is shown and
+    // the axis they are held to cannot drift apart.
+    const periods = buildPeriodAxis(
+      cycle.fiscalYear,
+      cycle.horizonYears,
+      cycle.periodType,
+      fiscalConfigOf(cycle),
+    );
 
     return {
       data: {

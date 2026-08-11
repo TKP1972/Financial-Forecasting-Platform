@@ -98,35 +98,31 @@ console.log(
 // Find the cycle and a business unit to build against.
 const cycles = await call(analyst, 'GET', '/cycles');
 
-// Pick a single-year cycle deliberately rather than taking the first.
+// Pick a single-year cycle deliberately rather than taking the first: the
+// rolling suite creates three-year MTP cycles and GET /cycles returns the
+// newest fiscal year first, so data[0] is whichever suite ran last.
 //
-// GET /cycles returns newest fiscal year first, and the rolling suite creates
-// three-year MTP cycles, so data[0] is whichever suite ran last. More
-// importantly the list response omits horizonYears entirely, so the shape of
-// the period axis is not knowable from it - this journey took data[0], built
-// 12 period amounts for a 36-period cycle, and was refused with a 400. That is
-// a real API gap and is reported separately; the journey works around it by
-// resolving each candidate's detail until it finds an annual cycle.
-let cycle = null;
-for (const candidate of cycles.body.data) {
-  const detail = await call(analyst, 'GET', `/cycles/${candidate.id}`);
-  if ((detail.body?.data?.horizonYears ?? 1) <= 1) {
-    cycle = detail.body.data;
-    break;
-  }
-}
-if (!cycle) {
+// This journey originally took data[0], built 12 period amounts for a
+// 36-period cycle, and was refused with a 400 - and the list response did not
+// expose horizonYears, so there was no way to tell. Both are fixed; this reads
+// the field the fix added, which is the point of having it.
+const annual = cycles.body.data.find((c) => (c.horizonYears ?? 1) === 1);
+if (!annual) {
   console.log('\nNo single-year cycle available to build against.');
   process.exit(1);
 }
+const cycle = (await call(analyst, 'GET', `/cycles/${annual.id}`)).body.data;
+
 const units = await call(analyst, 'GET', '/org/business-units');
 const unit = units.body.data.find((u) => u.code === 'MOB') ?? units.body.data[0];
 const accounts = await call(analyst, 'GET', '/org/accounts');
 const account = accounts.body.data[0];
 
-// Already resolved above; multiplied by the horizon so this stays correct if
-// the journey is ever pointed at a multi-year cycle.
-const periodCount = cycle.periods.length * (cycle.horizonYears ?? 1);
+// The advertised axis is now the whole horizon, so this is simply its length -
+// no multiplying by horizonYears, which would double-count an MTP. That the
+// count a client derives from the response is the count the API enforces is
+// the property `packages/shared/src/period-axis.test.ts` pins.
+const periodCount = cycle.periods.length;
 
 // 400,000 total: above a Budget Owner's 250,000 limit, below a Finance
 // Manager's 2,000,000. That gap is what makes the delegated-authority step
