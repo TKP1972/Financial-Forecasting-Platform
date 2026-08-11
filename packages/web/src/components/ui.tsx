@@ -21,7 +21,7 @@ export function PageHeader({
       <div>
         <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
         {description ? (
-          <p className="mt-0.5 max-w-3xl text-xs text-slate-500 dark:text-slate-400">
+          <p className="mt-0.5 max-w-3xl text-xs text-slate-600 dark:text-slate-400">
             {description}
           </p>
         ) : null}
@@ -113,7 +113,7 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center">
       <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{title}</p>
-      <p className="max-w-md text-xs text-slate-500 dark:text-slate-400">{description}</p>
+      <p className="max-w-md text-xs text-slate-600 dark:text-slate-400">{description}</p>
       {action}
     </div>
   );
@@ -197,7 +197,7 @@ export function Field({
         {label}
       </label>
       {children}
-      {hint ? <p className="mt-1 text-2xs text-slate-500 dark:text-slate-400">{hint}</p> : null}
+      {hint ? <p className="mt-1 text-2xs text-slate-600 dark:text-slate-400">{hint}</p> : null}
     </div>
   );
 }
@@ -351,7 +351,7 @@ export function Tabs<T extends string>({
             className={`-mb-px rounded-t-md border-b-2 px-3 py-2 text-xs font-medium transition-colors ${
               isActive
                 ? 'border-accent-600 text-accent-700 dark:border-accent-400 dark:text-accent-300'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
+                : 'border-transparent text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
             }`}
           >
             {tab.label}
@@ -387,7 +387,7 @@ export function StatTile({
 }) {
   return (
     <div className="card px-4 py-3">
-      <p className="text-2xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+      <p className="text-2xs font-medium uppercase tracking-wide text-slate-600 dark:text-slate-400">
         {label}
       </p>
       <p
@@ -400,7 +400,7 @@ export function StatTile({
         {value}
       </p>
       {caption ? (
-        <p className="mt-0.5 text-2xs text-slate-500 dark:text-slate-400">{caption}</p>
+        <p className="mt-0.5 text-2xs text-slate-600 dark:text-slate-400">{caption}</p>
       ) : null}
     </div>
   );
@@ -429,5 +429,86 @@ export function ProgressBar({ value, label }: { value: number; label: string }) 
         />
       </div>
     </div>
+  );
+}
+
+/**
+ * A chart with a real text equivalent, not a decorative SVG.
+ *
+ * Recharts renders an SVG with no accessible name and no readable content, so
+ * a screen-reader user gets nothing from it at all — the largest single gap in
+ * `docs/accessibility.md`. Two things fix that, and both are needed:
+ *
+ *   - `role="img"` with a `summary` that states what the chart *shows*. A list
+ *     of numbers is not an equivalent; the trend is the information.
+ *   - The underlying figures as a real table, visually hidden but present in
+ *     the accessibility tree, so the data is reachable rather than merely
+ *     described.
+ *
+ * The visual chart is hidden from assistive technology (`aria-hidden`) because
+ * otherwise a screen reader walks hundreds of unlabelled `<path>` elements
+ * before reaching anything useful.
+ */
+export function AccessibleChart({
+  title,
+  summary,
+  columns,
+  rows,
+  className,
+  children,
+}: {
+  /** Names the chart in the accessibility tree. */
+  title: string;
+  /** One sentence on what the chart shows — the trend, not the numbers. */
+  summary: string;
+  /**
+   * The chart's data as a table. Omit **only** where the same figures are
+   * already on the page in a real table — a second hidden copy is noise to
+   * work through, not an extra equivalent.
+   */
+  columns?: string[];
+  rows?: Array<Array<string | number>>;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <figure className={className}>
+      <div role="img" aria-label={`${title}. ${summary}`} className="h-64 w-full">
+        <div aria-hidden="true" className="h-full w-full">
+          {children}
+        </div>
+      </div>
+      {columns && rows ? (
+        <figcaption className="sr-only">
+          <table>
+            <caption>{`${title}. ${summary}`}</caption>
+            <thead>
+              <tr>
+                {columns.map((column) => (
+                  <th key={column} scope="col">
+                    {column}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, index) => (
+                <tr key={index}>
+                  {row.map((cell, cellIndex) =>
+                    cellIndex === 0 ? (
+                      <th key={cellIndex} scope="row">
+                        {cell}
+                      </th>
+                    ) : (
+                      <td key={cellIndex}>{cell}</td>
+                    ),
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </figcaption>
+      ) : null}
+    </figure>
   );
 }

@@ -148,7 +148,7 @@ export default function Layout() {
                   <p className="text-xs font-medium text-slate-800 dark:text-slate-100">
                     {user.firstName} {user.lastName}
                   </p>
-                  <p className="text-2xs text-slate-500 dark:text-slate-400">{user.email}</p>
+                  <p className="text-2xs text-slate-600 dark:text-slate-400">{user.email}</p>
                 </div>
                 <span className="pill bg-accent-100 text-accent-800 dark:bg-accent-900/50 dark:text-accent-200">
                   {ROLE_LABELS[user.role]}

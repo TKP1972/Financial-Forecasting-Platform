@@ -109,7 +109,7 @@ function AuditTab() {
             </div>
           )
         ) : (
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-slate-600 dark:text-slate-400">
             Verification has not been run in this session. It re-derives every hash from the genesis
             entry forward — the one control that proves the trail has not been tampered with.
           </p>
@@ -164,7 +164,7 @@ function AuditTab() {
                       {formatDateTime(entry.createdAt)}
                     </td>
                     <td
-                      className="font-mono text-2xs text-slate-500 dark:text-slate-400"
+                      className="font-mono text-2xs text-slate-600 dark:text-slate-400"
                       title={entry.hash}
                     >
                       {entry.hash.slice(0, 12)}…
@@ -178,7 +178,7 @@ function AuditTab() {
 
         {meta && meta.total > 0 ? (
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-4 py-2.5 text-xs dark:border-slate-800">
-            <p className="text-slate-500 dark:text-slate-400">
+            <p className="text-slate-600 dark:text-slate-400">
               {integer(meta.total)} entries in the trail
             </p>
             <div className="flex items-center gap-2">
@@ -190,7 +190,7 @@ function AuditTab() {
               >
                 Previous
               </button>
-              <span className="tabular-nums text-slate-500 dark:text-slate-400">
+              <span className="tabular-nums text-slate-600 dark:text-slate-400">
                 Page {meta.page} of {Math.max(1, meta.totalPages)}
               </span>
               <button

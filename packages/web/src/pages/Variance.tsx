@@ -442,7 +442,7 @@ function ProjectionTab({ cycleId, currency }: { cycleId: string; currency: strin
                         <td className="min-w-[16rem]">
                           {line.label}
                           {line.warnings.length > 0 ? (
-                            <span className="block text-2xs text-slate-500 dark:text-slate-400">
+                            <span className="block text-2xs text-slate-600 dark:text-slate-400">
                               {line.warnings.join(' ')}
                             </span>
                           ) : null}

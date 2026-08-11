@@ -36,7 +36,7 @@ matters beyond accessibility, but it is the specific thing WCAG 1.4.1 asks for.
 
 This is the part a procurement questionnaire actually needs.
 
-- **No audit.** No automated scan (axe, Lighthouse) and no manual assessment has been run. Nothing
+- **No manual assessment.** An automated scan now runs (see below); no human assessment has. Nothing
   here should be read as a conformance claim.
 - **Colour contrast unmeasured.** The palette was chosen for legibility but the ratios have not
   been computed against 4.5:1 for body text or 3:1 for large text. Both themes need checking.
@@ -44,25 +44,46 @@ This is the part a procurement questionnaire actually needs.
   "should" is not "does" — focus order, focus visibility and keyboard traps in modals and the
   pricing workbench are unverified.
 - **No screen-reader testing.** Not with NVDA, JAWS or VoiceOver.
-- **Charts are not accessible.** The dashboard uses Recharts, which renders SVG with no text
-  alternative. **A screen-reader user currently cannot read the charts at all.** The underlying
-  figures are available in adjacent tables in most places, but not all, and that is not a
-  substitute for an equivalent.
-- **No skip-to-content link**, so a keyboard user tabs through the navigation on every page.
-- **Data tables lack `<caption>` and scope attributes**, which makes them harder to navigate by
-  screen reader than their semantic markup suggests.
 - **Zoom and reflow at 320px unverified** (WCAG 1.4.10).
+- **Focus order and focus visibility unverified** by hand, particularly in the pricing workbench.
+
+Three items previously listed here have been **corrected and are no longer gaps**. They are
+recorded rather than deleted, because a document that quietly improves its own history is not
+worth trusting:
+
+- _"Charts are not accessible."_ Fixed. Every chart is now an `AccessibleChart`: a `role="img"`
+  with a summary stating what it shows, the raw SVG hidden from assistive technology, and the
+  figures carried as a real table — visually hidden where the page does not already show one.
+- _"No skip-to-content link."_ This was **never true**. `Layout.tsx` has had one throughout.
+- _"Data tables lack `<caption>` and scope attributes."_ This was **almost entirely untrue**: 39
+  of 40 tables carried captions and there were 190 `scope` attributes. The one exception, the
+  reference-data import preview, now has both.
+
+The last two were wrong when written, which is worth saying plainly: an accessibility statement
+that overstates its gaps is still an inaccurate statement, and it was corrected only because a
+scan was finally run against the code rather than against the memory of it.
 
 ---
 
-## Known to be the largest gap
+## What the automated scan now covers
 
-**Charts.** Everything else on this list is a day or two of work. A genuinely accessible chart is
-a different problem: it needs a text alternative that conveys the trend, not just the numbers, and
-usually a table view as a first-class alternative rather than a fallback.
+`npm run test:ui:a11y` runs **axe-core** against every screen, as three different roles render it,
+plus the signed-out login page — 35 assertions. As of 2026-08-11 it reports **zero violations at
+any impact level** against WCAG 2.1 A and AA.
 
-If an accessibility requirement is firm, raise charts first. It is the one item that could change
-a delivery estimate.
+It found two real defects on its first run, both since fixed:
+
+- **Muted body text failed contrast**, at 4.34:1 against the page background where 4.5:1 is
+  required. It passed on white cards and failed on the page itself, which is why reading the code
+  would never have found it. 28 occurrences across nearly every screen.
+- **Empty risk heat-map cells were drawn at 40% opacity**, taking their labels to **1.96:1** — the
+  worst failure in the product. Opacity fades text and background together, so nothing below about
+  78% passes here, by which point the de-emphasis is pointless. Empty cells are now drawn neutral.
+
+**What a clean scan does not mean.** axe-core catches roughly a third of WCAG issues — the
+mechanical ones. It cannot judge whether a label is meaningful, whether focus order makes sense,
+or whether a chart's text alternative conveys the trend rather than merely the numbers. This is a
+floor, not a conformance claim.
 
 ---
 
@@ -70,9 +91,10 @@ a delivery estimate.
 
 The order that gets there fastest:
 
-1. **Automated scan** (axe-core in CI) — catches contrast, missing labels and ARIA misuse cheaply,
-   and would have caught most of the unknowns above. Roughly half a day to wire in.
-2. **Keyboard pass** by hand, on the six main screens. A morning.
+1. ~~**Automated scan** (axe-core)~~ — **done**, and green. It is not in CI because CI has no
+   browser; it runs from `npm run test:ui:a11y` against the live stack.
+2. **Keyboard pass** by hand, on the six main screens. A morning. This is now the first
+   outstanding item.
 3. **Fix what those two find**, which is the unknown-sized part.
 4. **Screen-reader pass** on the primary flows: sign in, open a budget, submit it.
 5. **Manual WCAG AA audit** for anything that must be formally attested. This is the point at

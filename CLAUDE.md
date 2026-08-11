@@ -195,12 +195,27 @@ mutating seeded state. **`smoke-test-rolling.ps1` is the exception**: it closes 
 consumes the seeded cycle's open periods and `exit 1`s once fewer than two remain. It needs a
 fresh `npm run db:reset` to run again, and in CI it reads as a failure rather than a skip.
 
-**The UI journeys drive a real browser.** `npm run test:ui` (or
-`node scripts/run-e2e.mjs ui-journey`) signs in as each of the five seeded roles through the
-real login form and clicks every nav item, the pricing calculator and the workflow buttons —
-44 assertions. `npm run test:ui:pricing` (`ui-pricing`) covers `pricing:view_margin` on its
-own, 36 assertions, because a field-level restriction is the one a UI can appear to honour
-while not honouring it — it found exactly that. It is **not** in the default `test:e2e` set, because a CI runner without Chrome
+**Four browser journeys drive a real browser.** `npm run test:ui:all` runs the lot; each is
+also a suite name for `scripts/run-e2e.mjs`. None are in the default `test:e2e` set, because a
+CI runner without Chrome would fail for want of a browser rather than for a defect. `--headed`
+to watch any of them.
+
+| Suite                    | Alias           | Covers                                                    |
+| ------------------------ | --------------- | --------------------------------------------------------- |
+| `journey-ui.mjs`         | `ui-journey`    | Sign-in, all 10 nav items per role, workflow buttons (44) |
+| `journey-pricing.mjs`    | `ui-pricing`    | `pricing:view_margin` and price sign-off (55)             |
+| `journey-operations.mjs` | `ui-operations` | Forecasting, risk, variance, reference data (27)          |
+| `journey-a11y.mjs`       | `ui-a11y`       | axe-core over every screen, three roles (35)              |
+
+`journey-ui` is a reachability test — it proves each screen loads or explains itself.
+`journey-operations` is the functional one: it runs a forecast, a simulation and a projection,
+and asserts Monte Carlo reproducibility (same seed, same figures; different seed, different
+figures) because that property is what makes a published contingency number auditable.
+
+The a11y suite gates on **serious and critical** only, but records every impact level to
+`artifacts/ui-journey/a11y.json`. A gate that fails on minor advisories gets switched off; one
+that fails on a real barrier does not. It found the two worst contrast defects in the product on
+its first run. It is **not** in the default `test:e2e` set, because a CI runner without Chrome
 would fail for want of a browser rather than for a defect. `--headed` to watch it.
 
 Three rules make it worth having rather than a screenshot generator:

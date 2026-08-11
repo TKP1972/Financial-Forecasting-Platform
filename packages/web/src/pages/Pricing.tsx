@@ -190,7 +190,7 @@ function CostVolumeTable({ result }: { result: PricingResult }) {
       <th scope="row" className={`text-left font-normal ${options.bold ? 'font-semibold' : ''}`}>
         <span className={options.indent ? 'pl-4' : ''}>{label}</span>
         {options.sub ? (
-          <span className="block pl-4 text-2xs font-normal text-slate-500 dark:text-slate-400">
+          <span className="block pl-4 text-2xs font-normal text-slate-600 dark:text-slate-400">
             {options.sub}
           </span>
         ) : null}
@@ -260,7 +260,7 @@ function CostVolumeTable({ result }: { result: PricingResult }) {
               <tr key={pool}>
                 <th scope="row" className="text-left font-normal">
                   <span className="pl-4">{BURDEN_POOL_LABELS[pool]}</span>
-                  <span className="block pl-4 text-2xs text-slate-500 dark:text-slate-400">
+                  <span className="block pl-4 text-2xs text-slate-600 dark:text-slate-400">
                     {first
                       ? `${percent(first.rate, { fractionDigits: 2 })} on ${first.baseElements
                           .map((element) => humanise(element))
@@ -274,7 +274,7 @@ function CostVolumeTable({ result }: { result: PricingResult }) {
                     <td key={year.year} className="num">
                       {applied ? money0(applied.amount, currency) : '—'}
                       {applied ? (
-                        <span className="block text-2xs text-slate-500 dark:text-slate-400">
+                        <span className="block text-2xs text-slate-600 dark:text-slate-400">
                           base {money0(applied.base, currency)}
                         </span>
                       ) : null}
@@ -324,7 +324,7 @@ function SignOffCell({ pursuit }: { pursuit: PursuitListItem }) {
   });
 
   if (!pursuit.latestModelId) {
-    return <span className="text-slate-400 dark:text-slate-500">No priced version</span>;
+    return <span className="text-slate-400 dark:text-slate-600">No priced version</span>;
   }
 
   const approved = pursuit.latestApprovedAt !== null;
@@ -435,7 +435,7 @@ function PriceToWinPanel({ draft }: { draft: ModelDraft }) {
           ) : null}
         </>
       ) : (
-        <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+        <p className="mt-3 text-xs text-slate-600 dark:text-slate-400">
           Enter the margin the pursuit needs to clear and solve. The fee rate returned is the one
           that produces exactly that margin on the cost base currently in the workbench.
         </p>
@@ -571,7 +571,7 @@ export default function Pricing() {
                         <td className="num">{money0(pursuit.latestPrice)}</td>
                         <td className="num">
                           {!canViewMargin ? (
-                            <span className="text-slate-400 dark:text-slate-500">Restricted</span>
+                            <span className="text-slate-400 dark:text-slate-600">Restricted</span>
                           ) : pursuit.latestMargin === null ? (
                             '—'
                           ) : (
@@ -900,7 +900,7 @@ export default function Pricing() {
                       }))
                     }
                   />
-                  <p className="mt-1 text-2xs text-slate-500 dark:text-slate-400">
+                  <p className="mt-1 text-2xs text-slate-600 dark:text-slate-400">
                     {percent(Number(burden.rate) || 0, { fractionDigits: 2 })} on the standard base
                   </p>
                 </div>
@@ -923,7 +923,7 @@ export default function Pricing() {
               >
                 Reset to seeded bid
               </button>
-              <span className="text-2xs text-slate-500 dark:text-slate-400">
+              <span className="text-2xs text-slate-600 dark:text-slate-400">
                 Nothing is saved — this calculates without persisting a model version.
               </span>
             </div>

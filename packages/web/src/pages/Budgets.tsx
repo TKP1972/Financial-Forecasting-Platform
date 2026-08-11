@@ -132,12 +132,12 @@ export default function Budgets() {
                       >
                         {budget.name}
                       </Link>
-                      <div className="text-2xs text-slate-500 dark:text-slate-400">
+                      <div className="text-2xs text-slate-600 dark:text-slate-400">
                         v{budget.version}
                       </div>
                     </td>
                     <td>
-                      <span className="font-mono text-2xs text-slate-500 dark:text-slate-400">
+                      <span className="font-mono text-2xs text-slate-600 dark:text-slate-400">
                         {budget.businessUnit.code}
                       </span>{' '}
                       {budget.businessUnit.name}
@@ -165,7 +165,7 @@ export default function Budgets() {
 
         {meta && meta.total > 0 ? (
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-4 py-2.5 text-xs dark:border-slate-800">
-            <p className="text-slate-500 dark:text-slate-400">
+            <p className="text-slate-600 dark:text-slate-400">
               Showing {integer((meta.page - 1) * meta.pageSize + 1)}–
               {integer(Math.min(meta.page * meta.pageSize, meta.total))} of {integer(meta.total)}
             </p>
@@ -178,7 +178,7 @@ export default function Budgets() {
               >
                 Previous
               </button>
-              <span className="tabular-nums text-slate-500 dark:text-slate-400">
+              <span className="tabular-nums text-slate-600 dark:text-slate-400">
                 Page {meta.page} of {Math.max(1, meta.totalPages)}
               </span>
               <button

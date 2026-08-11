@@ -70,7 +70,7 @@ export default function ResetPassword() {
                   } ended.`
                 : '.'}
             </p>
-            <p className="text-2xs text-slate-500 dark:text-slate-400">
+            <p className="text-2xs text-slate-600 dark:text-slate-400">
               Every session is ended on a reset, on the assumption that the reason for resetting was
               that someone else had access.
             </p>
@@ -110,7 +110,7 @@ export default function ResetPassword() {
                   if (error) setError(null);
                 }}
               />
-              <p className="mt-1 text-2xs text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-2xs text-slate-600 dark:text-slate-400">
                 At least 12 characters, with upper and lower case, a digit and a symbol.
               </p>
             </div>

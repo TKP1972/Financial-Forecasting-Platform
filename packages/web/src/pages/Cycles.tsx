@@ -17,7 +17,7 @@ function DeadlineCell({ days, date }: { days: number; date: string }) {
   return (
     <div>
       <span className="tabular-nums">{formatDate(date)}</span>
-      <span className="ml-2 text-2xs text-slate-500 dark:text-slate-400">
+      <span className="ml-2 text-2xs text-slate-600 dark:text-slate-400">
         {overdue ? `${integer(Math.abs(days))} days ago` : `in ${integer(days)} days`}
       </span>
     </div>
@@ -77,7 +77,7 @@ export default function Cycles() {
                       >
                         {cycle.name}
                       </Link>
-                      <div className="text-2xs text-slate-500 dark:text-slate-400">
+                      <div className="text-2xs text-slate-600 dark:text-slate-400">
                         FY{cycle.fiscalYear} · {humanise(cycle.periodType)}ly · {cycle.baseCurrency}
                       </div>
                     </td>

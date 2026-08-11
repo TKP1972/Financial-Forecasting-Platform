@@ -148,7 +148,7 @@ function InboxTab() {
                         {isUnread ? <span className="sr-only">Unread. </span> : null}
                         {row.subject}
                       </p>
-                      <p className="mt-0.5 text-2xs text-slate-500 dark:text-slate-400">
+                      <p className="mt-0.5 text-2xs text-slate-600 dark:text-slate-400">
                         {NOTIFICATION_TYPE_LABELS[row.type] ?? row.type} ·{' '}
                         {formatDateTime(row.createdAt)}
                         {row.status === 'PENDING' ? ' · queued for delivery' : ''}
@@ -192,7 +192,7 @@ function InboxTab() {
 
       {pageCount > 1 ? (
         <div className="flex items-center justify-between border-t border-slate-200 px-4 py-2 text-xs dark:border-slate-800">
-          <span className="text-slate-500 dark:text-slate-400">
+          <span className="text-slate-600 dark:text-slate-400">
             Page {page} of {pageCount}
           </span>
           <div className="flex gap-2">
@@ -249,7 +249,7 @@ function PreferencesTab() {
             <div className="min-w-0">
               <p className="text-xs font-medium text-slate-800 dark:text-slate-100">{row.label}</p>
               {!row.mutable ? (
-                <p className="text-2xs text-slate-500 dark:text-slate-400">Always sent</p>
+                <p className="text-2xs text-slate-600 dark:text-slate-400">Always sent</p>
               ) : null}
             </div>
             <label className="flex shrink-0 items-center gap-2 text-xs">
@@ -330,21 +330,21 @@ function OperationsTab() {
               ['Not yet due', dispatch.data.skipped],
             ].map(([label, value]) => (
               <div key={String(label)}>
-                <dt className="text-2xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <dt className="text-2xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
                   {label}
                 </dt>
                 <dd className="text-sm font-semibold tabular-nums">{value}</dd>
               </div>
             ))}
             <div>
-              <dt className="text-2xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <dt className="text-2xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
                 Transport
               </dt>
               <dd className="text-sm font-semibold">{dispatch.data.transport}</dd>
             </div>
           </dl>
         ) : (
-          <p className="text-xs text-slate-500 dark:text-slate-400">Not run in this session.</p>
+          <p className="text-xs text-slate-600 dark:text-slate-400">Not run in this session.</p>
         )}
       </Card>
 
@@ -373,7 +373,7 @@ function OperationsTab() {
               ['Queued', scan.data.queued],
             ].map(([label, value]) => (
               <div key={String(label)}>
-                <dt className="text-2xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <dt className="text-2xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
                   {label}
                 </dt>
                 <dd className="text-sm font-semibold tabular-nums">{value}</dd>
@@ -381,7 +381,7 @@ function OperationsTab() {
             ))}
           </dl>
         ) : (
-          <p className="text-xs text-slate-500 dark:text-slate-400">Not run in this session.</p>
+          <p className="text-xs text-slate-600 dark:text-slate-400">Not run in this session.</p>
         )}
       </Card>
     </div>

@@ -53,7 +53,7 @@ function GuidancePackPanel({ cycleId, currency }: { cycleId: string; currency: s
         <section>
           <h3 className="mb-2 text-xs font-semibold">Strategic priorities</h3>
           {pack.strategicPriorities.length === 0 ? (
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-600 dark:text-slate-400">
               No priorities have been published for this cycle.
             </p>
           ) : (
@@ -148,7 +148,7 @@ function GuidancePackPanel({ cycleId, currency }: { cycleId: string; currency: s
                       {assumption.displayValue ||
                         assumptionDisplay(assumption.value, assumption.unit, currency)}
                     </td>
-                    <td className="text-slate-500 dark:text-slate-400">
+                    <td className="text-slate-600 dark:text-slate-400">
                       {assumption.notes ?? '—'}
                     </td>
                   </tr>
@@ -233,7 +233,7 @@ export default function CycleDetail() {
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="card px-4 py-3">
-          <p className="text-2xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <p className="text-2xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
             Status
           </p>
           <p className="mt-1">
@@ -241,13 +241,13 @@ export default function CycleDetail() {
           </p>
         </div>
         <div className="card px-4 py-3">
-          <p className="text-2xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <p className="text-2xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
             Opens
           </p>
           <p className="mt-1 text-sm font-semibold tabular-nums">{formatDate(cycle.opensAt)}</p>
         </div>
         <div className="card px-4 py-3">
-          <p className="text-2xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <p className="text-2xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
             Submission deadline
           </p>
           <p className="mt-1 text-sm font-semibold tabular-nums">
@@ -255,7 +255,7 @@ export default function CycleDetail() {
           </p>
         </div>
         <div className="card px-4 py-3">
-          <p className="text-2xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <p className="text-2xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
             Approval deadline
           </p>
           <p className="mt-1 text-sm font-semibold tabular-nums">
@@ -303,7 +303,7 @@ export default function CycleDetail() {
                       <td className="num font-medium">
                         {assumptionDisplay(assumption.value, assumption.unit, currency)}
                       </td>
-                      <td className="max-w-xs text-slate-500 dark:text-slate-400">
+                      <td className="max-w-xs text-slate-600 dark:text-slate-400">
                         {assumption.notes ?? '—'}
                       </td>
                     </tr>
@@ -346,7 +346,7 @@ export default function CycleDetail() {
                   {cycle.targets.map((target) => (
                     <tr key={target.id}>
                       <td>
-                        <span className="font-mono text-2xs text-slate-500 dark:text-slate-400">
+                        <span className="font-mono text-2xs text-slate-600 dark:text-slate-400">
                           {target.businessUnit.code}
                         </span>{' '}
                         {target.businessUnit.name}
@@ -377,9 +377,9 @@ export default function CycleDetail() {
               key={period.key}
               className="rounded border border-slate-200 px-2.5 py-2 dark:border-slate-800"
             >
-              <p className="font-mono text-2xs text-slate-500 dark:text-slate-400">{period.key}</p>
+              <p className="font-mono text-2xs text-slate-600 dark:text-slate-400">{period.key}</p>
               <p className="text-xs font-medium">{period.label}</p>
-              <p className="text-2xs text-slate-500 dark:text-slate-400">
+              <p className="text-2xs text-slate-600 dark:text-slate-400">
                 Q{period.quarter} · from {formatDate(period.startDate)}
               </p>
             </li>
@@ -424,7 +424,7 @@ export default function CycleDetail() {
                       </Link>
                     </td>
                     <td>
-                      <span className="font-mono text-2xs text-slate-500 dark:text-slate-400">
+                      <span className="font-mono text-2xs text-slate-600 dark:text-slate-400">
                         {budget.businessUnit.code}
                       </span>{' '}
                       {budget.businessUnit.name}

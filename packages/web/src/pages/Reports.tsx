@@ -332,7 +332,7 @@ export default function Reports() {
                         </td>
                         <td className="tabular-nums">{formatDate(row.publishedAt)}</td>
                         <td>{row.publishedBy?.name ?? '—'}</td>
-                        <td className="text-slate-500 dark:text-slate-400">{row.note ?? '—'}</td>
+                        <td className="text-slate-600 dark:text-slate-400">{row.note ?? '—'}</td>
                       </tr>
                     ))}
                   </tbody>

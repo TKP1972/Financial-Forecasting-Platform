@@ -18,6 +18,7 @@ import {
   YAxis,
 } from 'recharts';
 import {
+  AccessibleChart,
   Card,
   EmptyState,
   ErrorState,
@@ -92,7 +93,7 @@ function HeatMap({ heatMap }: { heatMap: number[][] }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-xs">
-        <caption className="px-1 py-2 text-left text-xs text-slate-500 dark:text-slate-400">
+        <caption className="px-1 py-2 text-left text-xs text-slate-600 dark:text-slate-400">
           Count of risks at each probability and impact combination. Each cell states its severity
           band in text as well as colour.
         </caption>
@@ -100,7 +101,7 @@ function HeatMap({ heatMap }: { heatMap: number[][] }) {
           <tr>
             <th
               scope="col"
-              className="p-1 text-left text-2xs font-semibold text-slate-500 dark:text-slate-400"
+              className="p-1 text-left text-2xs font-semibold text-slate-600 dark:text-slate-400"
             >
               Impact ↓ / Probability →
             </th>
@@ -111,7 +112,7 @@ function HeatMap({ heatMap }: { heatMap: number[][] }) {
                 className="p-1 text-center text-2xs font-semibold text-slate-600 dark:text-slate-300"
               >
                 {probability}
-                <span className="block font-normal text-slate-500 dark:text-slate-400">
+                <span className="block font-normal text-slate-600 dark:text-slate-400">
                   {PROBABILITY_LABELS[probability]}
                 </span>
               </th>
@@ -126,7 +127,7 @@ function HeatMap({ heatMap }: { heatMap: number[][] }) {
                 className="p-1 text-left text-2xs font-semibold text-slate-600 dark:text-slate-300"
               >
                 {impact}
-                <span className="block font-normal text-slate-500 dark:text-slate-400">
+                <span className="block font-normal text-slate-600 dark:text-slate-400">
                   {IMPACT_LABELS[impact]}
                 </span>
               </th>
@@ -135,9 +136,21 @@ function HeatMap({ heatMap }: { heatMap: number[][] }) {
                 const severity = severityFor(impact * probability);
                 return (
                   <td key={probability} className="p-0.5">
+                    {/*
+                      An empty cell is drawn neutral rather than faded. It used
+                      to carry the severity colour at 40% opacity, which took the
+                      label to a contrast of 1.96:1 - the worst failure in the
+                      product. Opacity fades text and background together, so
+                      nothing below about 78% passes AA here, by which point the
+                      de-emphasis is invisible anyway. The cell's position in the
+                      matrix already carries the severity; the colour only needs
+                      to mark where risks actually are.
+                    */}
                     <div
-                      className={`flex h-14 flex-col items-center justify-center rounded ${SEVERITY_CLASSES[severity]} ${
-                        count === 0 ? 'opacity-40' : ''
+                      className={`flex h-14 flex-col items-center justify-center rounded ${
+                        count === 0
+                          ? 'bg-slate-50 text-slate-600 ring-1 ring-inset ring-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:ring-slate-800'
+                          : SEVERITY_CLASSES[severity]
                       }`}
                     >
                       <span className="text-sm font-semibold tabular-nums">{count}</span>
@@ -404,7 +417,12 @@ function MonteCarloPanel({ canSimulate }: { canSimulate: boolean }) {
           <div className="mt-4 grid gap-4 xl:grid-cols-2">
             <div>
               <h3 className="mb-2 text-xs font-semibold">Outcome distribution</h3>
-              <div className="h-64 w-full">
+              <AccessibleChart
+                title="Simulated outcome distribution"
+                summary={`How often the simulation landed in each range across ${integer(result.iterations)} iterations. Mean ${money0(result.mean)}, standard deviation ${money0(result.standardDeviation)}, spanning ${money0(result.min)} to ${money0(result.max)}.`}
+                columns={['Range from', 'Iterations']}
+                rows={histogram.map((bin) => [money0(String(bin.lower)), integer(bin.count)])}
+              >
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={histogram} margin={{ top: 8, right: 12, bottom: 8, left: 8 }}>
                     <CartesianGrid
@@ -451,8 +469,8 @@ function MonteCarloPanel({ canSimulate }: { canSimulate: boolean }) {
                     />
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
-              <p className="mt-1 text-2xs text-slate-500 dark:text-slate-400">
+              </AccessibleChart>
+              <p className="mt-1 text-2xs text-slate-600 dark:text-slate-400">
                 Mean {money0(result.mean)} · standard deviation {money0(result.standardDeviation)} ·
                 range {money0(result.min)} to {money0(result.max)}.
               </p>
@@ -460,7 +478,10 @@ function MonteCarloPanel({ canSimulate }: { canSimulate: boolean }) {
 
             <div>
               <h3 className="mb-2 text-xs font-semibold">Sensitivity (tornado)</h3>
-              <div className="h-64 w-full">
+              <AccessibleChart
+                title="Sensitivity by risk"
+                summary="Which inputs move the outcome most, strongest correlation first. The same figures are in the table below this chart."
+              >
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={tornado}
@@ -504,7 +525,7 @@ function MonteCarloPanel({ canSimulate }: { canSimulate: boolean }) {
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
+              </AccessibleChart>
               <table className="data-table mt-2">
                 <caption className="sr-only">
                   Spearman rank correlation of each input against the outcome
@@ -720,7 +741,7 @@ export default function Risk() {
                           {risk.residualSeverity ? (
                             <SeverityPill severity={risk.residualSeverity} />
                           ) : (
-                            <span className="text-slate-400 dark:text-slate-500">Not assessed</span>
+                            <span className="text-slate-400 dark:text-slate-600">Not assessed</span>
                           )}
                         </td>
                         <td className="num">{money(risk.financialImpact)}</td>

@@ -161,7 +161,7 @@ export default function ReferenceData() {
             </button>
           </div>
           {result === null && csv.trim() !== '' ? (
-            <p className="text-2xs text-slate-500 dark:text-slate-400">
+            <p className="text-2xs text-slate-600 dark:text-slate-400">
               Check the file first. Apply is enabled once the check comes back clean.
             </p>
           ) : null}
@@ -202,7 +202,7 @@ export default function ReferenceData() {
                   ['Unchanged', result.unchanged],
                 ].map(([label, value]) => (
                   <div key={String(label)}>
-                    <dt className="text-2xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    <dt className="text-2xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
                       {label}
                     </dt>
                     <dd className="text-lg font-semibold tabular-nums">{value}</dd>
@@ -220,7 +220,7 @@ export default function ReferenceData() {
                       <li key={index} className="text-slate-700 dark:text-slate-300">
                         <span className="font-semibold tabular-nums">Row {issue.row}</span>
                         {issue.field ? (
-                          <span className="text-slate-500"> · {issue.field}</span>
+                          <span className="text-slate-600"> · {issue.field}</span>
                         ) : null}
                         {' — '}
                         {issue.message}
@@ -235,11 +235,14 @@ export default function ReferenceData() {
                   <h3 className="mb-1 text-xs font-semibold">What changes</h3>
                   <div className="max-h-64 overflow-y-auto">
                     <table className="table">
+                      <caption className="sr-only">
+                        Rows this import would create or update, with the fields affected.
+                      </caption>
                       <thead>
                         <tr>
-                          <th>Code</th>
-                          <th>Action</th>
-                          <th>Fields</th>
+                          <th scope="col">Code</th>
+                          <th scope="col">Action</th>
+                          <th scope="col">Fields</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -247,7 +250,7 @@ export default function ReferenceData() {
                           <tr key={`${entry.action}-${entry.code}`}>
                             <td className="font-mono text-2xs">{entry.code}</td>
                             <td>{entry.action === 'create' ? 'New' : 'Update'}</td>
-                            <td className="text-2xs text-slate-500 dark:text-slate-400">
+                            <td className="text-2xs text-slate-600 dark:text-slate-400">
                               {entry.changed?.join(', ') ?? '—'}
                             </td>
                           </tr>

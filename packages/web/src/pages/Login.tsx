@@ -82,7 +82,7 @@ export default function Login() {
               <h1 className="text-sm font-semibold tracking-tight">
                 Financial Forecasting Platform
               </h1>
-              <p className="text-2xs text-slate-500 dark:text-slate-400">
+              <p className="text-2xs text-slate-600 dark:text-slate-400">
                 Budgeting, forecasting, pricing, risk and expenditure control
               </p>
             </div>
@@ -189,7 +189,7 @@ export default function Login() {
                   className="flex w-full items-center justify-between rounded-md border border-slate-200 px-3 py-2 text-left text-xs transition-colors hover:border-accent-400 hover:bg-accent-50 disabled:opacity-50 dark:border-slate-700 dark:hover:border-accent-500 dark:hover:bg-slate-800"
                 >
                   <span className="font-medium">{account.role}</span>
-                  <span className="font-mono text-2xs text-slate-500 dark:text-slate-400">
+                  <span className="font-mono text-2xs text-slate-600 dark:text-slate-400">
                     {account.email}
                   </span>
                 </button>

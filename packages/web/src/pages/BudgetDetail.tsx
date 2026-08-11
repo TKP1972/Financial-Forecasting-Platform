@@ -127,13 +127,13 @@ function AlignmentPanel({ budgetId, currency }: { budgetId: string; currency: st
     >
       <div className="grid gap-4 lg:grid-cols-3">
         <div>
-          <p className="text-2xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <p className="text-2xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
             Alignment score
           </p>
           <p className="text-2xl font-semibold tabular-nums text-accent-700 dark:text-accent-300">
             {percent(report.alignmentScore)}
           </p>
-          <p className="mt-1 text-2xs text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-2xs text-slate-600 dark:text-slate-400">
             Money-weighted: 100% would mean every currency unit is tied directly to an objective.
           </p>
           <div className="mt-3">
@@ -141,11 +141,11 @@ function AlignmentPanel({ budgetId, currency }: { budgetId: string; currency: st
           </div>
           <dl className="mt-3 space-y-1 text-xs">
             <div className="flex justify-between">
-              <dt className="text-slate-500 dark:text-slate-400">Total budget</dt>
+              <dt className="text-slate-600 dark:text-slate-400">Total budget</dt>
               <dd className="tabular-nums font-medium">{money0(report.totalBudget, currency)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-slate-500 dark:text-slate-400">Unallocated</dt>
+              <dt className="text-slate-600 dark:text-slate-400">Unallocated</dt>
               <dd className="tabular-nums font-medium">
                 {money0(report.unallocated, currency)} ({percent(report.unallocatedShare)})
               </dd>
@@ -179,7 +179,7 @@ function AlignmentPanel({ budgetId, currency }: { budgetId: string; currency: st
             <tbody>
               {report.allocations.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-slate-500">
+                  <td colSpan={6} className="text-slate-600">
                     No budget lines are linked to a strategic objective.
                   </td>
                 </tr>
@@ -187,7 +187,7 @@ function AlignmentPanel({ budgetId, currency }: { budgetId: string; currency: st
                 report.allocations.map((allocation) => (
                   <tr key={allocation.objectiveId}>
                     <td>
-                      <span className="font-mono text-2xs text-slate-500 dark:text-slate-400">
+                      <span className="font-mono text-2xs text-slate-600 dark:text-slate-400">
                         {allocation.code}
                       </span>{' '}
                       {allocation.title}
@@ -247,7 +247,7 @@ function AlignmentPanel({ budgetId, currency }: { budgetId: string; currency: st
         <div>
           <h3 className="mb-2 text-xs font-semibold">Observations</h3>
           {report.observations.length === 0 ? (
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-600 dark:text-slate-400">
               Nothing stands out: funding broadly tracks the declared target shares.
             </p>
           ) : (
@@ -330,7 +330,7 @@ export default function BudgetDetail() {
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="card px-4 py-3">
-          <p className="text-2xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <p className="text-2xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
             Status
           </p>
           <p className="mt-1">
@@ -338,7 +338,7 @@ export default function BudgetDetail() {
           </p>
         </div>
         <div className="card px-4 py-3">
-          <p className="text-2xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <p className="text-2xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
             Total
           </p>
           <p className="mt-1 text-lg font-semibold tabular-nums">
@@ -346,7 +346,7 @@ export default function BudgetDetail() {
           </p>
         </div>
         <div className="card px-4 py-3">
-          <p className="text-2xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <p className="text-2xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
             Prepared by
           </p>
           <p className="mt-1 text-xs font-medium">
@@ -354,7 +354,7 @@ export default function BudgetDetail() {
               ? `${budget.preparedBy.firstName} ${budget.preparedBy.lastName}`
               : '—'}
           </p>
-          <p className="text-2xs text-slate-500 dark:text-slate-400">
+          <p className="text-2xs text-slate-600 dark:text-slate-400">
             Submitted{' '}
             {budget.submittedBy
               ? `by ${budget.submittedBy.firstName} ${budget.submittedBy.lastName}`
@@ -362,7 +362,7 @@ export default function BudgetDetail() {
           </p>
         </div>
         <div className="card px-4 py-3">
-          <p className="text-2xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <p className="text-2xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
             Approved
           </p>
           <p className="mt-1 text-xs font-medium">
@@ -370,7 +370,7 @@ export default function BudgetDetail() {
               ? `${budget.approvedBy.firstName} ${budget.approvedBy.lastName}`
               : '—'}
           </p>
-          <p className="text-2xs text-slate-500 dark:text-slate-400">
+          <p className="text-2xs text-slate-600 dark:text-slate-400">
             {formatDate(budget.approvedAt)}
           </p>
         </div>
@@ -473,13 +473,13 @@ export default function BudgetDetail() {
                 {budget.lines.map((line) => (
                   <tr key={line.id}>
                     <td className="min-w-[14rem]">
-                      <span className="font-mono text-2xs text-slate-500 dark:text-slate-400">
+                      <span className="font-mono text-2xs text-slate-600 dark:text-slate-400">
                         {line.account.code}
                       </span>{' '}
                       <span className="font-medium text-slate-800 dark:text-slate-100">
                         {line.account.name}
                       </span>
-                      <div className="text-2xs text-slate-500 dark:text-slate-400">
+                      <div className="text-2xs text-slate-600 dark:text-slate-400">
                         {humanise(line.account.type)}
                         {line.strategicObjective ? ` · ${line.strategicObjective.code}` : ''}
                       </div>
@@ -548,7 +548,7 @@ export default function BudgetDetail() {
                         <StatusPill status={version.status} />
                       </td>
                       <td className="num">{money0(version.totalAmount, currency)}</td>
-                      <td className="text-slate-500 dark:text-slate-400">
+                      <td className="text-slate-600 dark:text-slate-400">
                         {version.comment ?? '—'}
                       </td>
                       <td className="whitespace-nowrap tabular-nums">
@@ -601,7 +601,7 @@ export default function BudgetDetail() {
                           : '—'}
                       </td>
                       <td className="num">{money(approval.amount, { currency })}</td>
-                      <td className="text-slate-500 dark:text-slate-400">
+                      <td className="text-slate-600 dark:text-slate-400">
                         {approval.comment ?? '—'}
                       </td>
                       <td className="whitespace-nowrap tabular-nums">

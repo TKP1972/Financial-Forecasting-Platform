@@ -13,6 +13,7 @@ import {
   YAxis,
 } from 'recharts';
 import {
+  AccessibleChart,
   Card,
   EmptyState,
   ErrorState,
@@ -65,7 +66,7 @@ function ChartTooltip({
           }
           return (
             <li key={String(entry.dataKey)} className="flex justify-between gap-4">
-              <span className="text-slate-500 dark:text-slate-400">{entry.name}</span>
+              <span className="text-slate-600 dark:text-slate-400">{entry.name}</span>
               <span className="tabular-nums">{text}</span>
             </li>
           );
@@ -336,7 +337,19 @@ export default function Forecasting() {
             description="Select a business unit and account above. The chart draws the recorded actuals, and adds the forecast with its confidence band once you run one."
           />
         ) : (
-          <div className="h-80 w-full">
+          <AccessibleChart
+            className="h-80"
+            title="Actuals and forecast by period"
+            summary={`Recorded actuals followed by the forecast, with its confidence band where one was produced. ${chartData.filter((r) => r.actual !== null).length} periods of history and ${chartData.filter((r) => r.forecast !== null).length} forecast periods.`}
+            columns={['Period', 'Actual', 'Forecast', 'Band low', 'Band high']}
+            rows={chartData.map((row) => [
+              row.periodKey,
+              row.actual === null ? '—' : money0(String(row.actual)),
+              row.forecast === null ? '—' : money0(String(row.forecast)),
+              row.band === null ? '—' : money0(String(row.band[0])),
+              row.band === null ? '—' : money0(String(row.band[1])),
+            ])}
+          >
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
                 <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 3" vertical={false} />
@@ -393,7 +406,7 @@ export default function Forecasting() {
                 />
               </ComposedChart>
             </ResponsiveContainer>
-          </div>
+          </AccessibleChart>
         )}
       </Card>
 
@@ -494,7 +507,7 @@ export default function Forecasting() {
                               </span>
                             ) : null}
                             {candidate.error ? (
-                              <div className="text-2xs text-slate-500 dark:text-slate-400">
+                              <div className="text-2xs text-slate-600 dark:text-slate-400">
                                 {candidate.error}
                               </div>
                             ) : null}
@@ -514,7 +527,7 @@ export default function Forecasting() {
 
           <Card title="Fitted parameters" subtitle="What the engine settled on for this run">
             {Object.keys(result.parameters).length === 0 ? (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-slate-600 dark:text-slate-400">
                 This method has no fitted parameters.
               </p>
             ) : (
@@ -524,7 +537,7 @@ export default function Forecasting() {
                     key={key}
                     className="rounded border border-slate-200 px-2.5 py-1.5 dark:border-slate-800"
                   >
-                    <dt className="text-2xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    <dt className="text-2xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
                       {humanise(key)}
                     </dt>
                     <dd className="text-xs font-medium tabular-nums">{decimal(value, 4)}</dd>
@@ -537,25 +550,25 @@ export default function Forecasting() {
           <Card title="Fit diagnostics" subtitle="In-sample quality over the fitted window">
             <dl className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-3">
               <div>
-                <dt className="text-slate-500 dark:text-slate-400">Observations</dt>
+                <dt className="text-slate-600 dark:text-slate-400">Observations</dt>
                 <dd className="tabular-nums font-medium">{integer(result.accuracy.n)}</dd>
               </div>
               <div>
-                <dt className="text-slate-500 dark:text-slate-400">MAE</dt>
+                <dt className="text-slate-600 dark:text-slate-400">MAE</dt>
                 <dd className="tabular-nums font-medium">
                   {money0(String(result.accuracy.mae), currency)}
                 </dd>
               </div>
               <div>
-                <dt className="text-slate-500 dark:text-slate-400">sMAPE</dt>
+                <dt className="text-slate-600 dark:text-slate-400">sMAPE</dt>
                 <dd className="tabular-nums font-medium">{percent(result.accuracy.smape)}</dd>
               </div>
               <div>
-                <dt className="text-slate-500 dark:text-slate-400">R²</dt>
+                <dt className="text-slate-600 dark:text-slate-400">R²</dt>
                 <dd className="tabular-nums font-medium">{decimal(result.accuracy.rSquared)}</dd>
               </div>
               <div>
-                <dt className="text-slate-500 dark:text-slate-400">Run id</dt>
+                <dt className="text-slate-600 dark:text-slate-400">Run id</dt>
                 <dd className="font-mono text-2xs">{result.id}</dd>
               </div>
             </dl>

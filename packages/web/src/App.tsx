@@ -33,7 +33,7 @@ function NotFound() {
   return (
     <div className="card p-8 text-center">
       <h1 className="text-lg font-semibold">Page not found</h1>
-      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+      <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
         That address does not match any page in the platform. Use the navigation on the left.
       </p>
     </div>

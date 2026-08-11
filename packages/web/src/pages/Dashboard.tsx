@@ -145,7 +145,7 @@ export default function Dashboard() {
             <tbody>
               {(budget?.byStatus ?? []).length === 0 ? (
                 <tr>
-                  <td colSpan={2} className="text-slate-500">
+                  <td colSpan={2} className="text-slate-600">
                     No budgets have been created in this cycle yet.
                   </td>
                 </tr>
@@ -184,7 +184,7 @@ export default function Dashboard() {
         >
           <dl className="mb-3 grid grid-cols-2 gap-3">
             <div>
-              <dt className="text-2xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <dt className="text-2xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
                 Inherent exposure
               </dt>
               <dd className="text-sm font-semibold tabular-nums">
@@ -192,7 +192,7 @@ export default function Dashboard() {
               </dd>
             </div>
             <div>
-              <dt className="text-2xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <dt className="text-2xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
                 Residual exposure
               </dt>
               <dd className="text-sm font-semibold tabular-nums">
@@ -229,7 +229,7 @@ export default function Dashboard() {
           <p className="text-2xl font-semibold tabular-nums tracking-tight text-accent-700 dark:text-accent-300">
             {money0(pipeline?.weightedValue, currency)}
           </p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
             Across {integer(pipeline?.activePursuits ?? 0)} qualified, proposal, submitted or
             negotiating pursuits. Each pursuit&apos;s latest priced value is multiplied by its win
             probability.

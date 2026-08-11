@@ -65,7 +65,12 @@ const ALL_SUITES = [
 ];
 
 /** Suites that are runnable but excluded from the default set. */
-const OPTIONAL_SUITES = ['ui-journey/journey-ui.mjs', 'ui-journey/journey-pricing.mjs'];
+const OPTIONAL_SUITES = [
+  'ui-journey/journey-ui.mjs',
+  'ui-journey/journey-pricing.mjs',
+  'ui-journey/journey-operations.mjs',
+  'ui-journey/journey-a11y.mjs',
+];
 
 /**
  * PowerShell 7 is cross-platform, so these suites can run on a Linux CI runner
@@ -92,6 +97,10 @@ const requested = process.argv.slice(2);
 const ALIASES = {
   'ui-journey': 'ui-journey/journey-ui.mjs',
   'ui-pricing': 'ui-journey/journey-pricing.mjs',
+  'ui-operations': 'ui-journey/journey-operations.mjs',
+  'ui-a11y': 'ui-journey/journey-a11y.mjs',
+  /** Every browser suite, in the order that leaves the login limiter usable. */
+  ui: 'ui-journey/journey-ui.mjs',
 };
 
 function normalise(name) {
