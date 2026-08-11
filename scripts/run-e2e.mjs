@@ -28,6 +28,22 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const scriptsDir = dirname(fileURLToPath(import.meta.url));
+const repoRoot = join(scriptsDir, '..');
+
+/**
+ * Load the repository .env so suites inherit the real credentials.
+ *
+ * SEED_ADMIN_PASSWORD is configurable and the setup script generates a random
+ * one, so a suite that hardcodes the shipped default breaks the moment anyone
+ * follows the documented setup. Loading it here fixes every suite at once
+ * rather than in each of them.
+ */
+try {
+  const envFile = join(repoRoot, '.env');
+  if (existsSync(envFile)) process.loadEnvFile(envFile);
+} catch {
+  // A malformed .env is the API's problem to report, not the runner's.
+}
 
 /** Order matters: the broad smoke test first, tamper detection last. */
 const ALL_SUITES = [

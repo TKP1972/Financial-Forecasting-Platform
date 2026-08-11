@@ -29,7 +29,13 @@ function Login($email, $password) {
 function Bearer($token) { return @{ Authorization = "Bearer $token" } }
 
 Write-Host "`n== Authentication ==" -ForegroundColor Cyan
-$admin = Login 'admin@ffp.local' 'Adm1n!Local2026'
+# The seeded admin password is configurable (SEED_ADMIN_PASSWORD) and
+# scripts/init-env.mjs generates a random one, so this must not be hardcoded -
+# following the documented setup would otherwise break every run. run-e2e.mjs
+# loads .env before invoking the suites; the fallback is the shipped default for
+# anyone running this script directly.
+$adminPassword = if ($env:SEED_ADMIN_PASSWORD) { $env:SEED_ADMIN_PASSWORD } else { 'Adm1n!Local2026' }
+$admin = Login 'admin@ffp.local' $adminPassword
 Check 'admin login returns access token' ($admin.accessToken.Length -gt 20) 'no token'
 Check 'admin carries user:manage permission' ($admin.user.permissions -contains 'user:manage') 'missing'
 

@@ -40,7 +40,13 @@ function Status($block) {
   try { & $block | Out-Null; return 0 } catch { return $_.Exception.Response.StatusCode.value__ }
 }
 
-$admin   = Login 'admin@ffp.local' 'Adm1n!Local2026'
+# The seeded admin password is configurable (SEED_ADMIN_PASSWORD) and
+# scripts/init-env.mjs generates a random one, so this must not be hardcoded -
+# following the documented setup would otherwise break every run. run-e2e.mjs
+# loads .env before invoking the suites; the fallback is the shipped default for
+# anyone running this script directly.
+$adminPassword = if ($env:SEED_ADMIN_PASSWORD) { $env:SEED_ADMIN_PASSWORD } else { 'Adm1n!Local2026' }
+$admin   = Login 'admin@ffp.local' $adminPassword
 $finmgr  = Login 'finance.manager@ffp.local' 'FinMgr!Local26'
 $owner   = Login 'owner.mobile@ffp.local' 'Owner!Local26x'
 $viewer  = Login 'viewer@ffp.local' 'Viewer!Local26x'

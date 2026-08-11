@@ -104,6 +104,11 @@ once will bite again; a check that fails the build will not.
   resistance and invalidating every stored hash. `grep` also skipped the file as binary and
   git stored it as an undiffable blob. Write `'\u0000'`; it is identical at runtime.
   Enforced by `check:invariants`.
+- **Never hardcode a configurable credential in a suite.** `SEED_ADMIN_PASSWORD` is settable and
+  `scripts/init-env.mjs` generates a random one, so two suites hardcoding the shipped default
+  broke the moment the documented setup was actually followed. `run-e2e.mjs` now loads `.env`
+  before invoking suites, and they read `$env:SEED_ADMIN_PASSWORD`. The wider rule: changing a
+  value from fixed to configurable means finding every consumer that assumed it was fixed.
 - **The e2e suites test the running container, not your working tree.** `docker compose up -d`
   without `--build` reuses the cached image, so a suite can fail against a bug you fixed twenty
   minutes earlier — or pass against code you have since broken. This cost a real debugging

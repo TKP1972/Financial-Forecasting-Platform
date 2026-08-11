@@ -97,13 +97,36 @@ console.log(
 
 // Find the cycle and a business unit to build against.
 const cycles = await call(analyst, 'GET', '/cycles');
-const cycle = cycles.body.data[0];
+
+// Pick a single-year cycle deliberately rather than taking the first.
+//
+// GET /cycles returns newest fiscal year first, and the rolling suite creates
+// three-year MTP cycles, so data[0] is whichever suite ran last. More
+// importantly the list response omits horizonYears entirely, so the shape of
+// the period axis is not knowable from it - this journey took data[0], built
+// 12 period amounts for a 36-period cycle, and was refused with a 400. That is
+// a real API gap and is reported separately; the journey works around it by
+// resolving each candidate's detail until it finds an annual cycle.
+let cycle = null;
+for (const candidate of cycles.body.data) {
+  const detail = await call(analyst, 'GET', `/cycles/${candidate.id}`);
+  if ((detail.body?.data?.horizonYears ?? 1) <= 1) {
+    cycle = detail.body.data;
+    break;
+  }
+}
+if (!cycle) {
+  console.log('\nNo single-year cycle available to build against.');
+  process.exit(1);
+}
 const units = await call(analyst, 'GET', '/org/business-units');
 const unit = units.body.data.find((u) => u.code === 'MOB') ?? units.body.data[0];
 const accounts = await call(analyst, 'GET', '/org/accounts');
 const account = accounts.body.data[0];
 
-const periodCount = (await call(analyst, 'GET', `/cycles/${cycle.id}`)).body.data.periods.length;
+// Already resolved above; multiplied by the horizon so this stays correct if
+// the journey is ever pointed at a multi-year cycle.
+const periodCount = cycle.periods.length * (cycle.horizonYears ?? 1);
 
 // 400,000 total: above a Budget Owner's 250,000 limit, below a Finance
 // Manager's 2,000,000. That gap is what makes the delegated-authority step
