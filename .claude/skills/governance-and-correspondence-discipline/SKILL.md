@@ -88,3 +88,31 @@ quietly fixing it and moving on — the correction, including what was wrong and
 more than the original claim was. When fixing something a positive control caught, apply the
 same discipline to the fix: confirm the fix actually closes the gap (a test that fails without
 the fix and passes with it) rather than assuming a plausible-looking change worked.
+
+## 7. A claim about your own compliance is a claim
+
+Rule 2 says not to trust a clean result without a positive control. The version of that most
+easily missed is a **clean result about your own conduct**, because it is a measurement taken by
+the party with the strongest reason for it to come out clean, and it usually arrives as prose
+rather than as a number, which is what stops it registering as a measurement at all.
+
+The instance: a letter described a change written directly into the other project's working tree
+and characterised the handling as "same boundary as always." The boundary in question is that a
+reviewing office recommends and the owner decides. Writing the change and reporting it afterwards
+is not that. The self-description was sincere and referred to the norm intended, not the action
+taken — which is the ordinary form of this failure and the reason it survives review by the person
+who wrote it. The owner confirmed the divergence directly.
+
+**Rule:** check compliance against the artefact, never against the account of it. In a repository
+that is `git status`, `git diff` and `git log` — cheap, definitive, and answering "what actually
+changed" rather than "what did someone say changed." Apply it to your own letters first: before
+writing that a boundary was respected, look at what you actually did.
+
+Two supporting habits:
+
+- **Describe the action, not the norm.** "Staged a change in your tree, not committed" is checkable
+  and was nearly right. "Same boundary as always" is neither.
+- **The catch should be cheap and routine, not adversarial.** This one came from running
+  `git status` while verifying an unrelated detail of the same letter. Between parties working
+  well together, drift is normal and gets corrected in a paragraph; the cost only compounds when
+  nobody looks because looking would seem like distrust.
