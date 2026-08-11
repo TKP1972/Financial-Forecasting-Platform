@@ -634,8 +634,45 @@ async function main(): Promise<void> {
    * Two prior years plus part of the current year. The prior years give the
    * forecasting module something real to fit against; the current-year actuals
    * make the variance report and outturn projection meaningful.
+   *
+   * **The prior years belong to their own closed cycles, not to this one.**
+   * They used to carry the current cycle's id, which meant every query that
+   * aggregated actuals `where: { cycleId }` silently summed two and a half
+   * years of spend against a one-year budget. The dashboard read 333%
+   * utilisation and every RAG indicator in the product was red. `periodKey`
+   * distinguishes the years (`FY2024-P01` vs `FY2026-P01`) but `periodIndex`
+   * does not, and nothing filtered on the key.
+   *
+   * Modelling them as closed prior cycles is also what an organisation
+   * actually has, costs no migration, and leaves the forecasting history
+   * reachable: `GET /forecasts/history` filters by unit and account with an
+   * optional cycle, and the screen does not pass one.
    */
   const PERIODS_ELAPSED = 7;
+
+  const priorCycles = new Map<number, { id: string }>();
+  for (const year of PRIOR_YEARS) {
+    const prior = await prisma.budgetCycle.upsert({
+      where: { fiscalYear_name: { fiscalYear: year, name: `FY${year} Annual Budget` } },
+      create: {
+        name: `FY${year} Annual Budget`,
+        fiscalYear: year,
+        periodType: 'MONTH',
+        status: 'CLOSED',
+        opensAt: new Date(Date.UTC(year - 1, 8, 1)),
+        submissionDeadline: new Date(Date.UTC(year - 1, 9, 31)),
+        approvalDeadline: new Date(Date.UTC(year - 1, 10, 30)),
+        baseCurrency: 'USD',
+        // Fully closed: every period's actuals are final.
+        actualsThroughPeriod: 12,
+        guidanceNotes: `FY${year} closed. Retained for comparatives and as the base the forecast fits against.`,
+      },
+      update: {},
+      select: { id: true },
+    });
+    priorCycles.set(year, prior);
+  }
+
   const existingActuals = await prisma.actual.count({ where: { cycleId: cycle.id } });
 
   if (existingActuals === 0) {
@@ -665,7 +702,9 @@ async function main(): Promise<void> {
           for (let i = 0; i < 12; i += 1) {
             const jitter = 0.94 + random() * 0.12;
             rows.push({
-              cycleId: cycle.id,
+              // The prior year's own cycle. Attaching this to the current one
+              // is what made every actuals aggregation wrong.
+              cycleId: (priorCycles.get(year) as { id: string }).id,
               businessUnitId: plan.unit.id,
               accountId,
               periodKey: periodKey(year, i + 1, 'MONTH'),

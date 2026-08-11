@@ -1,8 +1,19 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
-import { Card, EmptyState, ErrorState, InlineNote, PageHeader, SelectField } from '@/components/ui';
-import { apiRequest, downloadFile } from '@/lib/api';
+import {
+  Card,
+  EmptyState,
+  ErrorState,
+  InlineNote,
+  LoadingTable,
+  PageHeader,
+  SelectField,
+  StatusPill,
+} from '@/components/ui';
+import { apiRequest, downloadFile, getData } from '@/lib/api';
+import { humanise } from '@/lib/format';
 import { useHasPermission } from '@/lib/permissions';
+import type { Account, BusinessUnit } from '@/types/api';
 
 type Entity = 'business-units' | 'accounts';
 
@@ -33,6 +44,102 @@ const COLUMNS: Record<Entity, string> = {
     'code, name, type, category, parentCode, spendCategory, costBehaviour, variableShare, isActive',
 };
 
+/**
+ * The reference data itself, readable by anyone who can read a budget.
+ *
+ * This page used to render nothing but a permission notice to every role
+ * except Admin. Reading the chart of accounts is not privileged - it populates
+ * the pickers on Budgets, Forecasting and Variance, so every role already sees
+ * it piecemeal. Only *importing* changes what budgets can be posted against,
+ * and only that is restricted. Showing a bare refusal made a working screen
+ * look unfinished.
+ */
+function ReferenceTable({ entity }: { entity: Entity }) {
+  const units = useQuery({
+    queryKey: ['business-units'],
+    queryFn: ({ signal }) => getData<BusinessUnit[]>('/org/business-units', undefined, signal),
+    enabled: entity === 'business-units',
+  });
+  const accounts = useQuery({
+    queryKey: ['accounts'],
+    queryFn: ({ signal }) => getData<Account[]>('/org/accounts', undefined, signal),
+    enabled: entity === 'accounts',
+  });
+
+  const query = entity === 'business-units' ? units : accounts;
+
+  if (query.isPending) return <LoadingTable rows={6} columns={4} />;
+  if (query.isError) {
+    return <ErrorState error={query.error} onRetry={() => void query.refetch()} />;
+  }
+
+  if (entity === 'business-units') {
+    return (
+      <div className="overflow-x-auto">
+        <table className="data-table">
+          <caption>
+            The unit hierarchy every budget is posted against. Only active units are listed; a
+            deactivated unit keeps its history and stops accepting new lines.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Code</th>
+              <th scope="col">Name</th>
+              <th scope="col">Currency</th>
+              <th scope="col" className="num">
+                Budgets
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {(units.data ?? []).map((unit) => (
+              <tr key={unit.id}>
+                <td className="font-mono text-2xs">{unit.code}</td>
+                <td className="font-medium text-slate-800 dark:text-slate-100">{unit.name}</td>
+                <td>{unit.currency}</td>
+                <td className="num">{unit.budgetCount}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="data-table">
+        <caption>
+          The chart of accounts. An account&rsquo;s type decides how variance is read on it -
+          underspend on a cost is favourable, under-delivery of revenue is not.
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Code</th>
+            <th scope="col">Name</th>
+            <th scope="col">Type</th>
+            <th scope="col">Category</th>
+            <th scope="col">State</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(accounts.data ?? []).map((account) => (
+            <tr key={account.id}>
+              <td className="font-mono text-2xs">{account.code}</td>
+              <td className="font-medium text-slate-800 dark:text-slate-100">{account.name}</td>
+              <td>{humanise(account.type)}</td>
+              <td>{account.category ? humanise(account.category) : '—'}</td>
+              <td>
+                <StatusPill status={account.isActive ? 'ACTIVE' : 'INACTIVE'} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function ReferenceData() {
   const has = useHasPermission();
   const [entity, setEntity] = useState<Entity>('business-units');
@@ -50,16 +157,39 @@ export default function ReferenceData() {
     onSuccess: setResult,
   });
 
-  if (!has('settings:manage')) {
+  const canImport = has('settings:manage');
+
+  if (!canImport) {
     return (
       <>
-        <PageHeader title="Reference data" />
-        <Card>
-          <EmptyState
-            title="Importing reference data is restricted"
-            description="Loading business units and the chart of accounts changes what every budget in the platform can be posted against, so it requires the settings:manage permission."
-          />
+        <PageHeader
+          title="Reference data"
+          description="The business units and accounts every budget is posted against."
+        />
+        <Card className="mb-4">
+          <div className="max-w-xs">
+            <SelectField
+              id="ref-entity"
+              label="Showing"
+              value={entity}
+              onChange={(value) => setEntity(value as Entity)}
+              options={[
+                { value: 'business-units', label: ENTITY_LABEL['business-units'] },
+                { value: 'accounts', label: ENTITY_LABEL.accounts },
+              ]}
+            />
+          </div>
         </Card>
+        <Card bodyClassName="p-0">
+          <ReferenceTable entity={entity} />
+        </Card>
+        <div className="mt-4">
+          <InlineNote>
+            You can read reference data but not load it. Importing changes what every budget in the
+            platform can be posted against, so it requires the <code>settings:manage</code>
+            permission — ask an administrator.
+          </InlineNote>
+        </div>
       </>
     );
   }

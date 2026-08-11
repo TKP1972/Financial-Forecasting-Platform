@@ -37,46 +37,79 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
       };
     }
 
-    const [budgets, actualAgg, risks, statusCounts, pursuits] = await Promise.all([
-      prisma.budget.findMany({
-        where: { cycleId: cycle.id },
-        select: { id: true, status: true, totalAmount: true, businessUnitId: true },
-      }),
-      prisma.actual.aggregate({
-        where: { cycleId: cycle.id },
-        _sum: { amount: true, commitment: true },
-      }),
-      prisma.risk.findMany({
-        where: { status: { in: ['OPEN', 'MONITORING'] } },
-        select: {
-          id: true,
-          title: true,
-          category: true,
-          probability: true,
-          impact: true,
-          financialImpact: true,
-          response: true,
-          residualProbability: true,
-          residualImpact: true,
-          status: true,
-        },
-      }),
-      prisma.budget.groupBy({
-        by: ['status'],
-        where: { cycleId: cycle.id },
-        _count: { _all: true },
-      }),
-      prisma.pursuit.findMany({
-        where: { stage: { in: ['QUALIFIED', 'PROPOSAL', 'SUBMITTED', 'NEGOTIATION'] } },
-        select: {
-          id: true,
-          name: true,
-          stage: true,
-          probabilityOfWin: true,
-          pricingModels: { orderBy: { version: 'desc' }, take: 1, select: { totalPrice: true } },
-        },
-      }),
-    ]);
+    const budgetsForCycle = await prisma.budget.findMany({
+      where: { cycleId: cycle.id },
+      select: { id: true, status: true, totalAmount: true, businessUnitId: true },
+    });
+
+    /**
+     * Consumption is measured against the budget that authorised it, so the
+     * numerator has to cover the same units as the denominator.
+     *
+     * This previously summed **every** unit's actuals and divided by the
+     * **approved** budgets only. Mid-cycle - which is most of a cycle, because
+     * budgets are approved progressively - that compares unlike things: the
+     * dashboard read 333% utilisation while the leadership pack, which scopes
+     * both sides to approved units, read a correct 79%. Two headline screens,
+     * $531m apart on the same number.
+     */
+    const approvedUnitIds = [
+      ...new Set(
+        budgetsForCycle
+          .filter((b) => b.status === 'APPROVED' || b.status === 'LOCKED')
+          .map((b) => b.businessUnitId),
+      ),
+    ];
+
+    const [budgets, actualAgg, approvedActualAgg, risks, statusCounts, pursuits] =
+      await Promise.all([
+        Promise.resolve(budgetsForCycle),
+        // Everything spent in the cycle. This is a fact about the business and
+        // is reported as-is - narrowing it to make a ratio work would put a
+        // false number under a label that says "actual spend".
+        prisma.actual.aggregate({
+          where: { cycleId: cycle.id },
+          _sum: { amount: true, commitment: true },
+        }),
+        // The same measure over the units the denominator covers, used only for
+        // utilisation and remaining. An empty `in` matches nothing, which is
+        // right: with no approved budget, nothing has been authorised and there
+        // is no utilisation to report.
+        prisma.actual.aggregate({
+          where: { cycleId: cycle.id, businessUnitId: { in: approvedUnitIds } },
+          _sum: { amount: true, commitment: true },
+        }),
+        prisma.risk.findMany({
+          where: { status: { in: ['OPEN', 'MONITORING'] } },
+          select: {
+            id: true,
+            title: true,
+            category: true,
+            probability: true,
+            impact: true,
+            financialImpact: true,
+            response: true,
+            residualProbability: true,
+            residualImpact: true,
+            status: true,
+          },
+        }),
+        prisma.budget.groupBy({
+          by: ['status'],
+          where: { cycleId: cycle.id },
+          _count: { _all: true },
+        }),
+        prisma.pursuit.findMany({
+          where: { stage: { in: ['QUALIFIED', 'PROPOSAL', 'SUBMITTED', 'NEGOTIATION'] } },
+          select: {
+            id: true,
+            name: true,
+            stage: true,
+            probabilityOfWin: true,
+            pricingModels: { orderBy: { version: 'desc' }, take: 1, select: { totalPrice: true } },
+          },
+        }),
+      ]);
 
     const approvedTotal = budgets
       .filter((b) => b.status === 'APPROVED' || b.status === 'LOCKED')
@@ -84,6 +117,10 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
     const submittedTotal = budgets.reduce((acc, b) => acc + Number(b.totalAmount), 0);
     const actualTotal = Number(actualAgg._sum.amount ?? 0);
     const commitmentTotal = Number(actualAgg._sum.commitment ?? 0);
+    // Scoped to the units the approved total covers, so the ratio compares like
+    // with like. See the note on approvedUnitIds.
+    const approvedActual = Number(approvedActualAgg._sum.amount ?? 0);
+    const approvedCommitment = Number(approvedActualAgg._sum.commitment ?? 0);
 
     const riskSummary = summariseRegister(
       risks.map((r): RiskEntry => ({
@@ -135,8 +172,16 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
           actual: toMoneyString(actualTotal),
           commitment: toMoneyString(commitmentTotal),
           consumed: toMoneyString(actualTotal + commitmentTotal),
-          remaining: toMoneyString(approvedTotal - actualTotal - commitmentTotal),
-          utilisation: approvedTotal === 0 ? null : (actualTotal + commitmentTotal) / approvedTotal,
+          remaining: toMoneyString(approvedTotal - approvedActual - approvedCommitment),
+          utilisation:
+            approvedTotal === 0 ? null : (approvedActual + approvedCommitment) / approvedTotal,
+          /**
+           * Spend in units whose budget is not yet approved. It is real money
+           * and it is deliberately outside the ratio above, so it is surfaced
+           * rather than buried - a large figure here means the cycle is being
+           * consumed ahead of its own approvals.
+           */
+          unapprovedActual: toMoneyString(actualTotal - approvedActual),
         },
         risk: {
           openRisks: risks.length,
