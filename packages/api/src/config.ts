@@ -156,6 +156,19 @@ const envSchema = z.object({
   AUDIT_ANCHOR_SECONDS: z.coerce.number().int().min(0).default(3600),
 
   /**
+   * How often expired refresh and password-reset tokens are deleted.
+   *
+   * The one category of row the platform *may* delete. Everything financial is
+   * kept permanently and superseded rather than removed (DEL-01), but an
+   * expired credential is not a financial record: retaining it grows the table
+   * without bound and keeps dead credential hashes on disk for no reason.
+   *
+   * 0 disables the job, which is only sensible if something outside the
+   * application is doing the same work.
+   */
+  TOKEN_PURGE_SECONDS: z.coerce.number().int().min(0).default(21600),
+
+  /**
    * Optional append-only file for anchors, as JSON Lines.
    *
    * The application log always receives anchors. A file is useful when the log

@@ -15,7 +15,9 @@
 import type { FastifyInstance } from 'fastify';
 import { config } from './config.js';
 import { emitAnchor, fileSink, logSink } from './services/audit-anchor.service.js';
+import { purgeExpiredTokens } from './services/auth.service.js';
 import { scanDeadlines } from './services/deadline.service.js';
+import { purgeExpiredResetTokens } from './services/password-reset.service.js';
 import {
   createLogTransport,
   dispatchPending,
@@ -92,6 +94,24 @@ export function startWorkers(app: FastifyInstance): StartedWorkers {
     const result = await emitAnchor(sinks);
     if (result.failed.length > 0) {
       app.log.error({ failed: result.failed }, 'audit anchor sink(s) failed');
+    }
+  });
+
+  /**
+   * Housekeeping for expired credentials.
+   *
+   * `purgeExpiredTokens` and `purgeExpiredResetTokens` were both written, both
+   * exported, and never called by anything - so refresh tokens accumulated for
+   * the life of the deployment. Every sign-in creates one.
+   *
+   * This is the only deletion the platform performs. It is safe precisely
+   * because these are not financial records: nothing references them, no audit
+   * entry depends on them, and an expired token grants nothing.
+   */
+  every(config.TOKEN_PURGE_SECONDS, 'token-purge', async () => {
+    const [refresh, reset] = await Promise.all([purgeExpiredTokens(), purgeExpiredResetTokens()]);
+    if (refresh > 0 || reset > 0) {
+      app.log.info({ refresh, reset }, 'expired tokens purged');
     }
   });
 

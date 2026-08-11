@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Card,
@@ -6,6 +7,7 @@ import {
   ErrorState,
   LoadingTable,
   PageHeader,
+  SelectField,
   StatusPill,
 } from '@/components/ui';
 import { getData } from '@/lib/api';
@@ -24,10 +26,30 @@ function DeadlineCell({ days, date }: { days: number; date: string }) {
   );
 }
 
+/**
+ * Cycles in progress, rather than every cycle ever run.
+ *
+ * Nothing in this platform is deleted - a closed cycle stays readable forever,
+ * which is the point of DEL-01. The consequence is that this list only grows,
+ * and after a few fiscal years most of it is finished work nobody is looking
+ * for. The filter defaults to what is live and keeps the rest one selection
+ * away.
+ */
+const ACTIVE_STATUSES = 'PLANNING,OPEN,CONSOLIDATING';
+
+const VIEWS = [
+  { value: ACTIVE_STATUSES, label: 'In progress' },
+  { value: 'CLOSED', label: 'Closed' },
+  { value: '', label: 'All cycles' },
+];
+
 export default function Cycles() {
+  const [view, setView] = useState(ACTIVE_STATUSES);
+
   const query = useQuery({
-    queryKey: ['cycles'],
-    queryFn: ({ signal }) => getData<CycleSummary[]>('/cycles', undefined, signal),
+    queryKey: ['cycles', view],
+    queryFn: ({ signal }) =>
+      getData<CycleSummary[]>('/cycles', view ? { status: view } : undefined, signal),
   });
 
   return (
@@ -36,6 +58,18 @@ export default function Cycles() {
         title="Budget cycles"
         description="A cycle fixes the fiscal calendar, the planning assumptions every unit budgets against, the top-down targets and the deadlines."
       />
+
+      <Card className="mb-4">
+        <div className="max-w-xs">
+          <SelectField
+            id="cycle-view"
+            label="Show"
+            value={view}
+            onChange={setView}
+            options={VIEWS}
+          />
+        </div>
+      </Card>
 
       {query.isError ? (
         <ErrorState error={query.error} onRetry={() => void query.refetch()} />
@@ -48,8 +82,11 @@ export default function Cycles() {
           <div className="overflow-x-auto">
             <table className="data-table">
               <caption>
-                Every budget cycle, most recent fiscal year first, with its deadlines and the volume
-                of work it carries.
+                {view === ACTIVE_STATUSES
+                  ? 'Cycles in progress, most recent fiscal year first, with their deadlines and the volume of work they carry.'
+                  : view === 'CLOSED'
+                    ? 'Closed cycles. Kept in full - a closed cycle is still readable, and its budgets remain the baseline any variance was reported against.'
+                    : 'Every budget cycle, most recent fiscal year first, with its deadlines and the volume of work it carries.'}
               </caption>
               <thead>
                 <tr>
@@ -103,8 +140,14 @@ export default function Cycles() {
           </div>
         ) : (
           <EmptyState
-            title="No budget cycles yet"
-            description="A cycle has to exist before budgets can be prepared. Someone with cycle management rights needs to open one for the coming fiscal year."
+            title={view === '' ? 'No budget cycles yet' : 'Nothing matches this filter'}
+            description={
+              view === ''
+                ? 'A cycle has to exist before budgets can be prepared. Someone with cycle management rights needs to open one for the coming fiscal year.'
+                : view === 'CLOSED'
+                  ? 'No cycle has been closed yet. Closed cycles stay here permanently once they are.'
+                  : 'No cycle is currently in progress. Switch to "All cycles" to see closed ones, or open a new cycle for the coming fiscal year.'
+            }
           />
         )}
       </Card>

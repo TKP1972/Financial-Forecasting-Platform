@@ -8,6 +8,7 @@
 import type { FastifyInstance } from 'fastify';
 import {
   AppError,
+  BUDGET_CYCLE_STATUSES,
   buildPeriodAxis,
   fiscalConfigOf,
   createBudgetCycleSchema,
@@ -22,8 +23,44 @@ import { appendAuditEntry } from '../services/audit.service.js';
 import { buildGuidancePack, renderGuidancePackMarkdown } from '../services/guidance.service.js';
 
 export async function registerCycleRoutes(app: FastifyInstance): Promise<void> {
-  app.get('/', { onRequest: [app.requirePermission('cycle:read')] }, async () => {
+  /**
+   * List cycles, optionally narrowed by status.
+   *
+   * The default is unchanged - every cycle, newest first - because a list
+   * endpoint that quietly hides rows is a bad surprise for anyone already
+   * calling it. Narrowing is the caller's choice: the Cycles screen asks for
+   * the active ones, and a report that needs a closed cycle still finds it.
+   *
+   * This matters more over time than it looks. Nothing is ever deleted
+   * (DEL-01), so this list only grows, and after a few fiscal years most of it
+   * is finished work.
+   */
+  app.get('/', { onRequest: [app.requirePermission('cycle:read')] }, async (request) => {
+    const query = z
+      .object({
+        // Comma-separated rather than repeated, so it survives a plain query
+        // string without array-bracket conventions.
+        status: z.string().optional(),
+      })
+      .parse(request.query);
+
+    const requested = (query.status ?? '')
+      .split(',')
+      .map((value) => value.trim().toUpperCase())
+      .filter(Boolean);
+
+    const invalid = requested.filter(
+      (value) => !(BUDGET_CYCLE_STATUSES as readonly string[]).includes(value),
+    );
+    if (invalid.length > 0) {
+      throw new AppError(
+        'VALIDATION_ERROR',
+        `Unknown cycle status: ${invalid.join(', ')}. Valid values are ${BUDGET_CYCLE_STATUSES.join(', ')}.`,
+      );
+    }
+
     const cycles = await prisma.budgetCycle.findMany({
+      where: requested.length > 0 ? { status: { in: requested as never[] } } : {},
       orderBy: [{ fiscalYear: 'desc' }, { name: 'asc' }],
       include: {
         _count: { select: { budgets: true, assumptions: true, targets: true } },

@@ -155,6 +155,78 @@ configured); in containers it needs the nginx `location /api/` block. If you ser
 
 ---
 
+## Data growth and retention
+
+**The platform deletes almost nothing, deliberately.** Financial records are amended, superseded
+or closed — never removed (DEL-01 in `control-matrix.md`). Audit entries are hash-chained, so
+removing one breaks verification for every entry after it, which is the control working rather
+than a bug to route around. Plan for a database that only grows.
+
+### What grows, and how fast
+
+Measured on a seeded development database, so the per-row figures are real and the volumes are
+not:
+
+| Table               | Bytes/row (approx) | Driven by                                     |
+| ------------------- | ------------------ | --------------------------------------------- |
+| `audit_logs`        | ~1.3 kB            | Every governed action, plus every sign-in     |
+| `budget_versions`   | ~2.3 kB            | Every budget transition (full snapshot each)  |
+| `simulations`       | ~6.8 kB            | Every Monte Carlo run, kept with its seed     |
+| `rolling_forecasts` | ~2.9 kB            | Each roll, per business unit and account      |
+| `actuals`           | ~0.5 kB            | Volume × periods, the largest table long-term |
+| `published_reports` | varies             | One frozen leadership pack per publication    |
+
+A rough sizing: an organisation with 50 users doing a monthly cycle across 20 business units will
+generate on the order of tens of thousands of audit rows a year — comfortably tens of megabytes,
+not gigabytes. **Nothing here is alarming for years.** The point of this section is that there is
+no automatic pruning, so it is a number to watch rather than one to ignore.
+
+Check it with:
+
+```sql
+select relname, n_live_tup, pg_size_pretty(pg_total_relation_size(relid))
+from pg_stat_user_tables
+where n_live_tup > 0
+order by pg_total_relation_size(relid) desc
+limit 15;
+```
+
+### The one thing that is deleted
+
+Expired refresh and password-reset tokens, by the `token-purge` background job every
+`TOKEN_PURGE_SECONDS` (six hours by default; `0` disables it). These are not financial records —
+nothing references them, no audit entry depends on them, and an expired token grants nothing.
+Retaining them grows the table for the life of the deployment and keeps dead credential hashes on
+disk for no reason.
+
+Both purge functions existed and were never called until 2026-08-11, so a deployment older than
+that will have accumulated one refresh-token row per sign-in since it was installed. The job
+clears the backlog on its first run.
+
+### What to do when a table does get large
+
+In order of preference:
+
+1. **Nothing.** Postgres handles tens of millions of rows in these shapes without help. Confirm
+   the queries are still fast before treating size as a problem.
+2. **Index and partition**, particularly `actuals` and `audit_logs` by period or date. This keeps
+   every row and is the right answer for almost every case.
+3. **Archive out, with the chain intact.** If audit rows genuinely must leave the primary
+   database, export them **contiguously from the oldest**, keep the anchor records that cover
+   them, and record where they went. Never remove from the middle: the chain links each entry to
+   the previous hash, so a gap makes everything after it unverifiable.
+4. **Never delete financial records to save space.** If storage is the binding constraint, the
+   answer is more storage. A budget removed to save a few megabytes takes an auditable history
+   with it.
+
+### Closed cycles
+
+A closed cycle stays readable permanently and its budgets remain the baseline any variance was
+reported against. The Cycles screen defaults to **In progress** and offers Closed and All, so the
+list stays useful as the years accumulate — the data is filtered from view, never removed.
+
+---
+
 ## Rotating secrets
 
 | Secret              | Effect of rotation                                        | Safe?                   |
