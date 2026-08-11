@@ -2,6 +2,14 @@
 
 Conventions and traps specific to this codebase. Read before changing financial logic.
 
+## Session discipline
+
+Two project-agnostic skills apply here and in `udis-platform`, kept in sync between the two:
+`.claude/skills/model-and-token-efficiency` and
+`.claude/skills/governance-and-correspondence-discipline`. The second covers the
+`.internal/correspondence/` convention this repo already uses with UDIS — read it before
+starting a new round rather than re-deriving the convention from old files.
+
 ## Layout
 
 - `packages/shared` — money primitives, domain enums, RBAC matrix, fiscal calendar, Zod contracts

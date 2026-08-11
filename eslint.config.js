@@ -80,6 +80,12 @@ export default tseslint.config(
         console: 'readonly',
         process: 'readonly',
         URL: 'readonly',
+        // Node 22 provides these globally; the e2e runner and journey suite use
+        // them rather than pulling in a HTTP client dependency.
+        fetch: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        WebSocket: 'readonly',
       },
     },
   },

@@ -8,3 +8,7 @@ packages/api/prisma/migrations
 
 # Prettier has no PowerShell parser
 scripts/*.ps1
+
+# Upstream Cowork package, kept pristine as the reference copy. The working
+# versions live in .claude/skills/ and have deliberately diverged.
+Claude_Cowork_AI_Engineer_Package/
