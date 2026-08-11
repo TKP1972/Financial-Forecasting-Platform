@@ -144,17 +144,28 @@ check(
 
 section('2. Submission requires ownership, not just authorship');
 
+// The analyst moves it to review themselves - that transition is theirs to
+// make. Doing this first is not incidental: DRAFT -> SUBMITTED is not a legal
+// edge at all, so attempting it from DRAFT is refused by the transition-legality
+// check before role is ever consulted. Testing the role rule requires standing
+// on a legal edge first, or the assertion passes for the wrong reason.
+const toReview = await call(analyst, 'POST', `/budgets/${budgetId}/transition`, {
+  to: 'IN_REVIEW',
+});
+check(
+  'analyst can move their own draft to review',
+  toReview.status === 200,
+  `status=${toReview.status}`,
+);
+
 const analystSubmit = await call(analyst, 'POST', `/budgets/${budgetId}/transition`, {
   to: 'SUBMITTED',
 });
 check(
-  'analyst cannot submit what they wrote',
+  'analyst cannot submit what they wrote - submission needs ownership',
   analystSubmit.status === 403 && errorCode(analystSubmit) === 'FORBIDDEN',
   `status=${analystSubmit.status} code=${errorCode(analystSubmit)}`,
 );
-
-const toReview = await call(owner, 'POST', `/budgets/${budgetId}/transition`, { to: 'IN_REVIEW' });
-check('budget owner moves it to review', toReview.status === 200, `status=${toReview.status}`);
 
 const submitted = await call(owner, 'POST', `/budgets/${budgetId}/transition`, { to: 'SUBMITTED' });
 check('budget owner submits', submitted.status === 200, `status=${submitted.status}`);

@@ -104,6 +104,15 @@ once will bite again; a check that fails the build will not.
   resistance and invalidating every stored hash. `grep` also skipped the file as binary and
   git stored it as an undiffable blob. Write `'\u0000'`; it is identical at runtime.
   Enforced by `check:invariants`.
+- **The e2e suites test the running container, not your working tree.** `docker compose up -d`
+  without `--build` reuses the cached image, so a suite can fail against a bug you fixed twenty
+  minutes earlier — or pass against code you have since broken. This cost a real debugging
+  detour: a journey suite reported a stale approval that had been fixed and unit-tested, because
+  the image predated the fix by 21 minutes. **Rebuild the api image before trusting an e2e result
+  after changing `packages/api`.**
+- **`npm run db:reset` against a running API leaves it broken.** Dropping and recreating the
+  schema invalidates the connection pool's cached statements; reads keep working and writes start
+  returning 500. Restart the API after a reset, or reset before bringing the stack up.
 - **Rebuild the libs after changing a `shared` or `engine` export.** `api` typechecks against
   `packages/shared/dist/*.d.ts`, not the sources, so a field added to a shared interface is
   invisible to it until `npm run build:libs` runs. The symptom is a lie: `tsc` reports the

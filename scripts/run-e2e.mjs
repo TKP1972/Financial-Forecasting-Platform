@@ -31,6 +31,7 @@ const scriptsDir = dirname(fileURLToPath(import.meta.url));
 
 /** Order matters: the broad smoke test first, tamper detection last. */
 const ALL_SUITES = [
+  'journey-lifecycle.mjs',
   'smoke-test.ps1',
   'smoke-test-planning.ps1',
   'smoke-test-rolling.ps1',
@@ -60,8 +61,14 @@ function findShell() {
 }
 
 const requested = process.argv.slice(2);
-const suites =
-  requested.length > 0 ? requested.map((s) => (s.endsWith('.ps1') ? s : `${s}.ps1`)) : ALL_SUITES;
+/** A bare name means a PowerShell suite; .mjs suites are named in full. */
+function normalise(name) {
+  if (name.endsWith('.ps1') || name.endsWith('.mjs')) return name;
+  const asNode = ALL_SUITES.find((s) => s === `${name}.mjs`);
+  return asNode ?? `${name}.ps1`;
+}
+
+const suites = requested.length > 0 ? requested.map(normalise) : ALL_SUITES;
 
 const shell = findShell();
 if (!shell) {
@@ -86,10 +93,14 @@ for (const suite of suites) {
 
   console.log(`\n${'='.repeat(70)}\n  ${suite}\n${'='.repeat(70)}`);
 
-  const run = spawnSync(shell.exe, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path], {
-    stdio: 'inherit',
-    shell: false,
-  });
+  // Node suites run directly. Migrating suites off PowerShell one at a time is
+  // how the Windows-only constraint gets removed without a rewrite.
+  const run = suite.endsWith('.mjs')
+    ? spawnSync(process.execPath, [path], { stdio: 'inherit', shell: false })
+    : spawnSync(shell.exe, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path], {
+        stdio: 'inherit',
+        shell: false,
+      });
 
   results.push({ suite, status: run.status === 0 ? 'passed' : 'failed', code: run.status });
 }
