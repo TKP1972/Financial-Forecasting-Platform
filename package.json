@@ -25,6 +25,7 @@
     "_comment_e2e": "Runner rather than a ';'-chained command: npm uses cmd.exe on Windows, where ';' is not a separator, so the chain silently ran nothing. The runner also aggregates exit codes; the chain reported only the last suite's.",
     "test:e2e": "node scripts/run-e2e.mjs",
     "test:ui": "node scripts/ui-journey/journey-ui.mjs",
+    "test:ui:pricing": "node scripts/ui-journey/journey-pricing.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

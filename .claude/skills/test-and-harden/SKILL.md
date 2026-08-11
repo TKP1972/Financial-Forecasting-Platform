@@ -50,6 +50,28 @@ relying on a new test for something important: **break the thing on purpose, con
 fails, then restore it.** Keep the restoration reliable — restore from a copy you made, not from
 version control, if the file has uncommitted work in it.
 
+**A suite that passes everything on its first run has not been shown to work.** It has been shown
+to be consistent with the current behaviour, which is also what a suite asserting nothing does.
+
+Where breaking the source is undesirable — someone else's code, an approval boundary, a
+production path — **inject the defect into the running system instead**. For a browser suite that
+meant, at runtime: overlaying a div on a button, setting a control to zero size, appending a
+button that should not exist, and feeding the judgement function an unexplained error string. All
+four were detected, which is what made the green run mean something.
+
+Always include a **negative control** — something that must _not_ trip the check. A detector that
+fires on everything reads exactly like a detector that works. The check "is this refusal
+explained?" was confirmed both to flag a bare error and to tolerate a properly worded one.
+
+#### Leave shared resources as you found them
+
+A suite that consumes something global must restore it before exiting. A rate limiter, a pool of
+open periods, a fixture the next suite expects. The failure it causes lands on the _next_ suite,
+which is the hardest place to diagnose it, and reads as a defect in code that is fine.
+
+Prefer polling until the resource is actually available again over sleeping a fixed interval —
+it is both faster and honest about what it is waiting for.
+
 ### 3. Run & Diagnose
 
 - Run the relevant test command(s).
@@ -91,6 +113,11 @@ the verify step, a test that parses the artefact and compares it to the code it 
 
 ## Rules
 
+- **A correct test against broken code stays red.** When a new test fails because the code is
+  genuinely wrong, do not weaken the assertion, add an exception list, or reframe the defect as
+  expected behaviour to get a green run. Report it, and fix the code — or get approval to, if the
+  source is behind a gate. A suite edited to agree with a defect is worse than no suite, because
+  it now certifies it.
 - Prefer minimal fixes over broad refactors while in this skill.
 - If a failure reveals a design-level problem, surface it and recommend returning to the spec or plan rather than papering over it.
 - Use the cheapest capable model for pure test generation and simple fixes; escalate only for subtle concurrency, timing, or architectural bugs.

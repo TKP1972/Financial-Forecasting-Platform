@@ -65,7 +65,7 @@ const ALL_SUITES = [
 ];
 
 /** Suites that are runnable but excluded from the default set. */
-const OPTIONAL_SUITES = ['ui-journey/journey-ui.mjs'];
+const OPTIONAL_SUITES = ['ui-journey/journey-ui.mjs', 'ui-journey/journey-pricing.mjs'];
 
 /**
  * PowerShell 7 is cross-platform, so these suites can run on a Linux CI runner
@@ -89,7 +89,10 @@ function findShell() {
 
 const requested = process.argv.slice(2);
 /** A bare name means a PowerShell suite; .mjs suites are named in full. */
-const ALIASES = { 'ui-journey': 'ui-journey/journey-ui.mjs' };
+const ALIASES = {
+  'ui-journey': 'ui-journey/journey-ui.mjs',
+  'ui-pricing': 'ui-journey/journey-pricing.mjs',
+};
 
 function normalise(name) {
   if (ALIASES[name]) return ALIASES[name];

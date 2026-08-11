@@ -12,16 +12,52 @@ It exists because in this workspace, **almost every real defect was found by run
 not by reading or reasoning about it** — and in every case a full test suite, a green CI, and a
 careful review had already passed over the same code.
 
-| Defect                                           | Found by                                         | What had already passed |
-| ------------------------------------------------ | ------------------------------------------------ | ----------------------- |
-| `npm run test:e2e` executed **no suites at all** | Running it                                       | CI, 1000+ unit tests    |
-| Documented quick start could not boot            | Following the README from a cold start           | All of the above        |
-| One e2e suite had no rate-limit backoff          | Running the full set back-to-back, not one suite | The suite passing alone |
-| Demo data buried under test fixtures             | Opening the UI and looking                       | Every API test          |
-| `git status` writing to `.git/index`             | Running a test that asserted the property        | A read-only code review |
-| Display rounding disagreeing with the engine     | Comparing the two outputs directly               | Both sides' own tests   |
+| Defect                                                | Found by                                         | What had already passed         |
+| ----------------------------------------------------- | ------------------------------------------------ | ------------------------------- |
+| `npm run test:e2e` executed **no suites at all**      | Running it                                       | CI, 1000+ unit tests            |
+| Documented quick start could not boot                 | Following the README from a cold start           | All of the above                |
+| One e2e suite had no rate-limit backoff               | Running the full set back-to-back, not one suite | The suite passing alone         |
+| Demo data buried under test fixtures                  | Opening the UI and looking                       | Every API test                  |
+| `git status` writing to `.git/index`                  | Running a test that asserted the property        | A read-only code review         |
+| Display rounding disagreeing with the engine          | Comparing the two outputs directly               | Both sides' own tests           |
+| An API advertising 12 periods where it enforced 36    | Behaving as a naive client and being refused     | Both endpoints' tests           |
+| A field-level permission enforced only in the browser | Asking the API with a non-holder's own token     | The screen showing "Restricted" |
 
 None of these were subtle. All were invisible from inside.
+
+The last two share a shape worth naming on its own.
+
+## Two definitions of one rule will diverge
+
+Whenever a system **states** a constraint in one place and **enforces** it in another, those two
+will eventually disagree, and the disagreement is invisible to tests written on either side.
+
+Both endpoints had passing tests. The endpoint that advertised a cycle's period axis computed it
+with one helper; the validator that rejected budgets computed it with another. Each was correct
+about its own answer. A client that read the first and obeyed it was refused by the second, with
+an error that read as the client's own mistake.
+
+Ask, of any rule a caller must satisfy:
+
+- What does the system **tell** a caller the rule is?
+- What does the system **actually enforce**?
+- Are those the same expression, or two expressions that happen to agree today?
+
+The fix is not to test both harder. It is to make one call the other.
+
+## A UI-side check is not a control
+
+If a restriction can be satisfied by hiding a value in a component, assume it has been, and go
+and look. Redaction applied in three of four handlers is the normal shape of this defect — not a
+missing concept, but a rule applied by hand once per site.
+
+Test it by **asking the API directly with the restricted user's own token** and searching the
+whole response recursively for what should not be there. Naming the fields you expect to find is
+how the leak got in: the developer named the fields too, and missed the same one.
+
+Worth checking for the inverse at the same time. Over-restriction is equally a defect and much
+less likely to be reported, because the user who cannot do their job assumes they lack a
+permission rather than that the product is broken.
 
 ## The core move
 
@@ -54,6 +90,28 @@ fixtures is invisible to an API test suite and obvious to an eye.
 
 For a CLI, run a representative command and read the output. For an API, call it over HTTP rather
 than through a mocked client.
+
+When driving a UI programmatically, **dispatch real events at real coordinates** and confirm the
+element at that point is the one aimed at. A synthetic `element.click()` fires the handler on a
+control that is zero-sized, scrolled away, or covered by an overlay — all broken for a human, all
+green in the test.
+
+And **verify the effect against a different source than the one that caused it**. A screen
+rendering an optimistic success over a failed mutation passes every assertion made by reading
+that screen.
+
+### A refusal is not automatically a defect
+
+Judge a 4xx by what the user is shown, not by its presence in the network log.
+
+A permission check that fires is the control **working**. What decides defect-or-not is whether
+the screen then explains it. So the assertion is "every refusal is explained", never "no
+refusals" — the latter reports correct behaviour as broken. Written the wrong way round first,
+it flagged three working controls as bugs: a restricted audit trail, a masked pricing margin, and
+a login rate limiter, each of which already named the reason on screen.
+
+The corollary matters more: **before reporting a refusal as a defect, go and read what the user
+sees.** Reporting three non-problems costs the owner's trust in the next real finding.
 
 ### Run it twice, and run it after everything else
 
@@ -89,3 +147,7 @@ deduction, this skill has nothing to add and you should move on.
 - [ ] The full suite ran, in order, not just the changed part
 - [ ] Anything claimed to be fixed has a check that fails without the fix
 - [ ] Anything claimed to be impossible has a test that attempts it and is refused
+- [ ] Any rule the system **states** to a caller is the same expression it **enforces**
+- [ ] Any restriction visible in a UI was confirmed at the API with the restricted user's token
+- [ ] Every refusal found was judged by what the user is shown, before being called a defect
+- [ ] A claim the product makes **in its own words** to the user was checked against the facts
