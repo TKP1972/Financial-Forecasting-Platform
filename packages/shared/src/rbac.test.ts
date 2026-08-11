@@ -38,22 +38,26 @@ describe('permission inheritance', () => {
 
   it('each role is a STRICT superset of the role below it', () => {
     // Hand-counted sizes from the role definitions:
-    //   VIEWER          7   (budget/cycle/forecast/pricing/risk/actuals/report read)
-    //   ANALYST        13   (+6: budget:write, forecast:run, pricing:write,
+    //   VIEWER          6   (budget/cycle/forecast/pricing/risk/report read)
+    //   ANALYST        12   (+6: budget:write, forecast:run, pricing:write,
     //                        risk:write, risk:simulate, report:export)
-    //   BUDGET_OWNER   16   (+3: budget:submit, forecast:publish, pricing:view_margin)
-    //   FINANCE_MANAGER 25  (+9: budget:approve, cycle:manage, guidance:publish,
+    //   BUDGET_OWNER   15   (+3: budget:submit, forecast:publish, pricing:view_margin)
+    //   FINANCE_MANAGER 24  (+9: budget:approve, cycle:manage, guidance:publish,
     //                        pricing:approve, risk:accept, actuals:import,
     //                        report:publish_leadership, audit:read, user:read)
-    //   CFO            27   (+2: budget:lock, audit:verify)
-    //   ADMIN          30   (+3: budget:delete, user:manage, settings:manage)
+    //   CFO            26   (+2: budget:lock, audit:verify)
+    //   ADMIN          28   (+2: user:manage, settings:manage)
+    //
+    // ADMIN equals the total permission count because ADMIN is the top of the
+    // ladder and every permission is reachable. If that stops being true, one
+    // of the two has been changed without the other.
     const expectedSizes: Record<Role, number> = {
-      VIEWER: 7,
-      ANALYST: 13,
-      BUDGET_OWNER: 16,
-      FINANCE_MANAGER: 25,
-      CFO: 27,
-      ADMIN: 30,
+      VIEWER: 6,
+      ANALYST: 12,
+      BUDGET_OWNER: 15,
+      FINANCE_MANAGER: 24,
+      CFO: 26,
+      ADMIN: 28,
     };
 
     for (const role of LADDER) {
@@ -78,7 +82,7 @@ describe('permission inheritance', () => {
   it('ADMIN holds every declared permission', () => {
     // 6 budget + 3 cycle/guidance + 3 forecast + 4 pricing + 4 risk
     //   + 5 actuals/report + 5 governance = 30
-    expect(PERMISSIONS).toHaveLength(30);
+    expect(PERMISSIONS).toHaveLength(28);
     for (const permission of PERMISSIONS) {
       expect(can('ADMIN', permission), permission).toBe(true);
     }
@@ -87,8 +91,8 @@ describe('permission inheritance', () => {
   it('permissionsFor returns a sorted array and is unaffected by mutation', () => {
     const first = permissionsFor('VIEWER');
     expect(first).toEqual([...first].sort());
-    first.push('budget:delete');
-    expect(permissionsFor('VIEWER')).not.toContain('budget:delete');
+    first.push('settings:manage');
+    expect(permissionsFor('VIEWER')).not.toContain('settings:manage');
   });
 
   it('permissionsFor returns an empty list for an unknown role', () => {
@@ -114,8 +118,16 @@ describe('specific permission boundaries', () => {
     expect(LADDER.filter((r) => can(r, 'user:manage'))).toEqual(['ADMIN']);
   });
 
-  it("only ADMIN holds 'budget:delete'", () => {
-    expect(LADDER.filter((r) => can(r, 'budget:delete'))).toEqual(['ADMIN']);
+  it("only ADMIN holds 'settings:manage'", () => {
+    expect(LADDER.filter((r) => can(r, 'settings:manage'))).toEqual(['ADMIN']);
+  });
+
+  it('has no delete permission at all - budgets are amended, never removed', () => {
+    // Not a coverage test. Deleting a budget would leave audit entries pointing
+    // at a row that no longer exists, in a chain that still verifies, and would
+    // move the baseline under reports already issued. The absence is the
+    // control; see the comment on PERMISSIONS.
+    expect(PERMISSIONS.filter((p) => p.endsWith(':delete'))).toEqual([]);
   });
 
   it("only ADMIN holds 'settings:manage'", () => {
@@ -164,13 +176,13 @@ describe('ROLE_PERMISSIONS immutability', () => {
       // ESM modules run in strict mode, so this throws; under sloppy mode it is a
       // silent no-op. Either way the matrix must be unchanged afterwards.
       (ROLE_PERMISSIONS as unknown as Record<string, unknown>).VIEWER = new Set<Permission>([
-        'budget:delete',
+        'settings:manage',
       ]);
     } catch {
       /* expected under strict mode */
     }
     expect([...ROLE_PERMISSIONS.VIEWER].sort()).toEqual(before);
-    expect(can('VIEWER', 'budget:delete')).toBe(false);
+    expect(can('VIEWER', 'settings:manage')).toBe(false);
   });
 
   it('a new role cannot be grafted onto the matrix', () => {
@@ -183,7 +195,7 @@ describe('ROLE_PERMISSIONS immutability', () => {
       /* expected under strict mode */
     }
     expect(Object.keys(ROLE_PERMISSIONS)).toHaveLength(before);
-    expect(can('SUPERUSER' as Role, 'budget:delete')).toBe(false);
+    expect(can('SUPERUSER' as Role, 'settings:manage')).toBe(false);
   });
 
   // KNOWN GAP - see report. Object.freeze is shallow: the Set objects inside the
@@ -194,17 +206,17 @@ describe('ROLE_PERMISSIONS immutability', () => {
   it.fails('the inner permission sets should also be immutable (KNOWN GAP)', () => {
     const viewer = ROLE_PERMISSIONS.VIEWER as Set<Permission>;
     try {
-      viewer.add('budget:delete');
-      expect(can('VIEWER', 'budget:delete')).toBe(false);
+      viewer.add('settings:manage');
+      expect(can('VIEWER', 'settings:manage')).toBe(false);
     } finally {
       // Always restore, so the leak cannot contaminate other tests in this file.
-      viewer.delete('budget:delete');
+      viewer.delete('settings:manage');
     }
   });
 
   it('the matrix is intact after the mutability probe above', () => {
-    expect(can('VIEWER', 'budget:delete')).toBe(false);
-    expect(ROLE_PERMISSIONS.VIEWER.size).toBe(7);
+    expect(can('VIEWER', 'settings:manage')).toBe(false);
+    expect(ROLE_PERMISSIONS.VIEWER.size).toBe(6);
   });
 });
 

@@ -710,3 +710,57 @@ export interface RoleMatrixEntry {
   permissions: Permission[];
   defaultApprovalLimit: string | null;
 }
+
+// --------------------------------------------------------------------------
+// Leadership reporting
+// --------------------------------------------------------------------------
+
+export interface LeadershipPack {
+  generatedAt: string;
+  cycle: { id: string; name: string; fiscalYear: number; baseCurrency: string; status: string };
+  throughPeriod: number;
+  periodsInYear: number;
+  summary: {
+    approvedBudget: string;
+    actual: string;
+    commitment: string;
+    variance: string;
+    variancePercent: number | null;
+  };
+  byBusinessUnit: Array<{
+    code: string;
+    name: string;
+    budget: string;
+    actual: string;
+    variance: string;
+    variancePercent: number | null;
+    rag: RagStatus;
+  }>;
+  exceptions: Array<{
+    label: string;
+    budget: string;
+    actual: string;
+    variance: string;
+    rag: RagStatus;
+  }>;
+  risks: Array<{ title: string; category: string; severity: string; exposure: string }>;
+  commentary: string[];
+}
+
+/** A pack as issued — the frozen record, never recomputed. */
+export interface PublishedReportListItem {
+  id: string;
+  title: string;
+  throughPeriod: number | null;
+  note: string | null;
+  publishedAt: string;
+  cycle: { id: string; name: string; fiscalYear: number };
+  publishedBy: { id: string; name: string } | null;
+}
+
+export interface PublishedReportRef {
+  id: string;
+  title: string;
+  throughPeriod: number | null;
+  publishedAt: string;
+}

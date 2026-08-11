@@ -71,6 +71,7 @@ const NAV = [
   ['Pricing', '/pricing'],
   ['Risk', '/risk'],
   ['Variance', '/variance'],
+  ['Reports', '/reports'],
   ['Governance', '/governance'],
   ['Reference data', '/reference-data'],
 ];

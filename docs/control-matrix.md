@@ -22,17 +22,22 @@ Two things distinguish this from a control register that merely asserts its cont
 
 ## Summary
 
-| ID         | Control                    | Prevents                                           | Status       |
-| ---------- | -------------------------- | -------------------------------------------------- | ------------ |
-| **SOD-01** | Separation of duties       | Self-approval of budgets and of bid prices         | **ENFORCED** |
-| **DOA-01** | Delegated authority limits | Commitment beyond a person's authority             | **ENFORCED** |
-| **AUD-01** | Tamper-evident audit trail | Silent alteration or deletion of the record        | **ENFORCED** |
-| **VER-01** | Budget version snapshots   | An approved budget being changed after approval    | **ENFORCED** |
-| **LCK-01** | Locked baseline            | The reporting baseline moving under issued reports | **ENFORCED** |
-| **PRC-01** | Commercial price sign-off  | A bid price committed to a client without approval | **ENFORCED** |
+| ID         | Control                          | Prevents                                           | Status        |
+| ---------- | -------------------------------- | -------------------------------------------------- | ------------- |
+| **SOD-01** | Separation of duties             | Self-approval of budgets and of bid prices         | **ENFORCED**  |
+| **DOA-01** | Delegated authority limits       | Commitment beyond a person's authority             | **ENFORCED**  |
+| **AUD-01** | Tamper-evident audit trail       | Silent alteration or deletion of the record        | **ENFORCED**  |
+| **VER-01** | Budget version snapshots         | An approved budget being changed after approval    | **ENFORCED**  |
+| **LCK-01** | Locked baseline                  | The reporting baseline moving under issued reports | **ENFORCED**  |
+| **PRC-01** | Commercial price sign-off        | A bid price committed to a client without approval | **ENFORCED**  |
+| **PUB-01** | Issued report snapshots          | A tabled figure that cannot be reproduced later    | **ENFORCED**  |
+| **DEL-01** | No deletion of financial records | History being removed rather than superseded       | **BY DESIGN** |
 
 **ENFORCED** means refused server-side by the platform, not warned about and not left to
 procedure. A user cannot opt out, and neither can an administrator.
+
+**BY DESIGN** means the capability does not exist anywhere in the product, for any role. There is
+nothing to bypass because there is nothing to call.
 
 ---
 
@@ -236,6 +241,71 @@ commercial one. Concealing the former would hide the control rather than the pos
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `api/src/routes/pricing.approval.test.ts` | The endpoint reaches all three controls, each asserted by its own error code, with no write attempted on refusal; concurrent approval 409s.   |
 | `scripts/ui-journey/journey-pricing.mjs`  | Against a live stack and a real browser: who is offered the control, who the server honours, that the effect is real, and that it is audited. |
+
+---
+
+## PUB-01 — Issued report snapshots
+
+**The control.** A leadership pack can be _issued_: frozen exactly as it stands, attributed to the
+person who issued it, and never recomputed.
+
+**What it prevents.** A figure quoted in a review that cannot afterwards be traced to anything. The
+pack is otherwise built live from budgets, actuals and forecasts. That is correct for a working
+view and wrong for a record — reopening it a month later gives different numbers, and "the pack the
+board saw on 11 August" ceases to exist the moment the underlying data moves.
+
+This is the reporting analogue of LCK-01. The locked baseline stops the comparison moving; this
+stops the issued report moving.
+
+**How it is enforced.** `POST /reports/leadership-pack/publish` requires
+`report:publish_leadership` (Finance Manager upwards). The pack is **built server-side from the
+cycle id**, never accepted from the request body — a published record the caller could compose
+would contain whatever they chose to send, which is the opposite of an issued artefact. The
+snapshot and the audit entry commit in one transaction.
+
+**Reading an issued pack requires only `report:read`.** What was published, and by whom, is not
+privileged information; restricting it would hide the control from the people it exists to
+reassure. An issued pack also outlives its publisher's account (`publishedById` is set null on
+user deletion) — losing the record because someone left would defeat the purpose.
+
+**Evidence.**
+
+| Test                                     | What it proves                                                                                                                                                               |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `api/src/routes/reports.publish.test.ts` | The permission is reached before any write; the pack is built server-side and ignores caller-supplied contents; the stored snapshot is returned verbatim without rebuilding. |
+
+---
+
+## DEL-01 — Financial records are superseded, never deleted
+
+**The control.** No delete capability exists for budgets, at any level of privilege. There is no
+`budget:delete` permission, no route, and no administrative override.
+
+**What it prevents.** Removal of history. The reasons are structural rather than a matter of
+policy:
+
+- **The audit trail would still verify while pointing at nothing.** Entries reference budget ids.
+  Delete the budget and the hash chain remains internally consistent over records that no longer
+  resolve — worse than a visible gap, because it looks intact.
+- **Issued reports would silently change meaning.** Variance is measured against a locked baseline.
+  Remove a budget and the comparison behind an already-distributed report moves.
+- **An admin-only delete is the override shape SOD-01 warns about** — added for one urgent case,
+  then permanent.
+
+**What to do instead.** Amend the budget and let the version snapshots record the change; return it
+for revision; or supersede it with a new budget, leaving both visible. If something must come out
+of the numbers, that is a reversing entry, not a removal.
+
+**A permission for this existed in the matrix for months while no route implemented it.** It was
+removed rather than implemented — the fact that nothing had been built against it is the only
+reason the question was still open.
+
+**Evidence.**
+
+| Test                             | What it proves                                                                          |
+| -------------------------------- | --------------------------------------------------------------------------------------- |
+| `shared/src/rbac.test.ts`        | No permission ending in `:delete` exists in the matrix at all, for any role.            |
+| `shared/src/user-manual.test.ts` | The published permission reference matches the code, so the manual cannot describe one. |
 
 ---
 

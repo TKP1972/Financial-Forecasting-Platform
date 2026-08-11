@@ -159,6 +159,130 @@ describe('GET /pricing/pursuits', () => {
   });
 });
 
+describe('a pursuit with nothing priced yet', () => {
+  // The list has to answer for a pursuit that has no saved model at all -
+  // every "latest" field falls back rather than reading index 0 of an empty
+  // array. Worth its own case because the fallback is the state a pursuit is in
+  // on the day it is created.
+  it('reports nulls rather than failing', async () => {
+    db.user.findUnique.mockResolvedValue(HOLDERS[0]!);
+    db.pursuit.findMany.mockResolvedValue([{ ...pursuitRow(), pricingModels: [] }]);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/pricing/pursuits',
+      headers: authHeader(app, HOLDERS[0]!),
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data[0]).toMatchObject({
+      latestPrice: null,
+      latestMargin: null,
+      latestModelId: null,
+      latestApprovedAt: null,
+    });
+  });
+
+  it('reports nulls to a non-holder too, without disclosing anything', async () => {
+    db.user.findUnique.mockResolvedValue(WITHHELD[0]!);
+    db.pursuit.findMany.mockResolvedValue([{ ...pursuitRow(), pricingModels: [] }]);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/pricing/pursuits',
+      headers: authHeader(app, WITHHELD[0]!),
+    });
+
+    expect(disclosedMargins(res.json())).toEqual([]);
+  });
+});
+
+describe('GET /pricing/models/:id', () => {
+  const model = (approvedBy: unknown) => ({
+    id: 'model-1',
+    name: 'National backhaul refresh',
+    version: 4,
+    contractType: 'MANAGED_SERVICE',
+    currency: 'USD',
+    years: 3,
+    createdById: 'user-pricer',
+    approvedAt: approvedBy ? new Date('2026-08-11T00:00:00.000Z') : null,
+    approvedBy,
+    pursuit: { id: 'pursuit-1', name: 'Backhaul', client: 'Acme', stage: 'BID' },
+    input: {},
+    result: {
+      margin: { grossProfit: '5000.0000', grossMargin: '0.08', markup: '0.09' },
+      effectiveFeeRate: '0.07',
+      npv: '1234.0000',
+      irr: '0.11',
+      years: [],
+      totals: { profit: '5000.0000', fee: '100.0000' },
+    },
+    createdAt: new Date('2026-08-01T00:00:00.000Z'),
+  });
+
+  it('names the approver when the version is signed off', async () => {
+    db.user.findUnique.mockResolvedValue(HOLDERS[2]!);
+    db.pricingModel.findUnique.mockResolvedValue(
+      model({ id: 'user-cfo', firstName: 'Nomsa', lastName: 'Dlamini' }),
+    );
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/pricing/models/model-1',
+      headers: authHeader(app, HOLDERS[2]!),
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.approvedBy.name).toBe('Nomsa Dlamini');
+  });
+
+  it('returns a null approver when it is not signed off', async () => {
+    db.user.findUnique.mockResolvedValue(HOLDERS[2]!);
+    db.pricingModel.findUnique.mockResolvedValue(model(null));
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/pricing/models/model-1',
+      headers: authHeader(app, HOLDERS[2]!),
+    });
+
+    expect(res.json().data.approvedBy).toBeNull();
+    expect(res.json().data.approvedAt).toBeNull();
+  });
+
+  it('redacts the profit position for a non-holder', async () => {
+    // Sign-off state is a governance fact and stays visible; the margin inside
+    // the model does not.
+    db.user.findUnique.mockResolvedValue(WITHHELD[1]!);
+    db.pricingModel.findUnique.mockResolvedValue(
+      model({ id: 'user-cfo', firstName: 'Nomsa', lastName: 'Dlamini' }),
+    );
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/pricing/models/model-1',
+      headers: authHeader(app, WITHHELD[1]!),
+    });
+
+    expect(res.json().data.approvedBy.name).toBe('Nomsa Dlamini');
+    expect(disclosedMargins(res.json().data.result)).toEqual([]);
+  });
+
+  it('404s on a model that does not exist', async () => {
+    db.user.findUnique.mockResolvedValue(HOLDERS[2]!);
+    db.pricingModel.findUnique.mockResolvedValue(null);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/pricing/models/nope',
+      headers: authHeader(app, HOLDERS[2]!),
+    });
+
+    expect(res.statusCode).toBe(404);
+  });
+});
+
 describe('the recursive search itself', () => {
   // A detector that never fires reads exactly like a control that works, so the
   // instrument is checked against a payload that is known to be leaking.

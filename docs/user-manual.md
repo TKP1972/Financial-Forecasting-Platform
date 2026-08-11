@@ -144,8 +144,7 @@ Runs the cycle and approves the work of others.
 
 Everything a Budget Owner can, plus: **approve** budgets up to 2,000,000, **sign off bid prices**
 up to the same limit, **manage cycles** (open them, set deadlines), **publish the guideline pack**,
-**import actuals**, **accept risks**, **publish leadership reports**, **read the audit trail**, and
-see the user list.
+**import actuals**, **accept risks**, **issue leadership packs**, **read the audit trail**, and see the user list.
 
 ### What the system will refuse, and why
 
@@ -159,6 +158,12 @@ will exceed your limit and need the CFO.
 
 **You cannot sign off a price you built.** Separation of duties applies to pricing exactly as it
 applies to budgets, and for the same reason.
+
+**Issuing a leadership pack freezes it.** The pack on screen is rebuilt from live data every time
+it is opened, which is right for working with and wrong for a record: reopen it next month and the
+numbers have moved. Publishing stores it exactly as it stands, under your name. Do it before the
+review, not after — the point is that a figure someone questions in the meeting can be traced back
+to what was actually tabled.
 
 **You cannot lock a budget.** Locking makes a budget the reporting baseline and is reserved for
 the CFO.
@@ -230,8 +235,8 @@ Runs the platform. **Not a finance role**, despite outranking every finance role
 ### What you can do
 
 Everything, plus: **manage users** (create, deactivate, set roles and per-user approval limits),
-**manage settings**, **delete budgets**, and **import reference data** — the chart of accounts
-and business-unit hierarchy.
+**manage settings**, and **import reference data** — the chart of accounts and business-unit
+hierarchy.
 
 ### What the system will refuse, and why
 
@@ -239,6 +244,13 @@ and business-unit hierarchy.
 carries an unlimited approval limit and the highest seniority, and still cannot approve a budget
 it prepared or submitted. If any role were going to slip through on seniority it would be this
 one; it does not, and there is a test asserting it.
+
+**You cannot delete a budget, and neither can anyone else.** No such capability exists anywhere in
+the platform, for any role. A budget is amended, superseded or returned for revision. This is not
+an omission — deleting one would leave audit entries referencing a record that no longer exists, in
+a chain that still verifies, and would move the baseline underneath reports already issued. If
+something must be taken out of the numbers, supersede it with a new version or a reversing entry,
+so both remain visible and the history stays readable.
 
 ### What you are accountable for
 
@@ -286,11 +298,9 @@ The authoritative capability matrix. `Y` means the role holds the permission.
 | Permission                  | Viewer | Analyst | Owner | Fin Mgr | CFO | Admin |
 | --------------------------- | :----: | :-----: | :---: | :-----: | :-: | :---: |
 | `actuals:import`            |   ·    |    ·    |   ·   |    Y    |  Y  |   Y   |
-| `actuals:read`              |   Y    |    Y    |   Y   |    Y    |  Y  |   Y   |
 | `audit:read`                |   ·    |    ·    |   ·   |    Y    |  Y  |   Y   |
 | `audit:verify`              |   ·    |    ·    |   ·   |    ·    |  Y  |   Y   |
 | `budget:approve`            |   ·    |    ·    |   ·   |    Y    |  Y  |   Y   |
-| `budget:delete`             |   ·    |    ·    |   ·   |    ·    |  ·  |   Y   |
 | `budget:lock`               |   ·    |    ·    |   ·   |    ·    |  Y  |   Y   |
 | `budget:read`               |   Y    |    Y    |   Y   |    Y    |  Y  |   Y   |
 | `budget:submit`             |   ·    |    ·    |   Y   |    Y    |  Y  |   Y   |

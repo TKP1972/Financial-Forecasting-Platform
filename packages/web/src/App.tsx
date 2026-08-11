@@ -14,6 +14,7 @@ import Pricing from '@/pages/Pricing';
 import ReferenceData from '@/pages/ReferenceData';
 import ResetPassword from '@/pages/ResetPassword';
 import Risk from '@/pages/Risk';
+import Reports from '@/pages/Reports';
 import Variance from '@/pages/Variance';
 import { useAuthStore } from '@/store/auth';
 
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/risk" element={<Risk />} />
         <Route path="/variance" element={<Variance />} />
+        <Route path="/reports" element={<Reports />} />
         <Route path="/governance" element={<Governance />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/reference-data" element={<ReferenceData />} />

@@ -11,6 +11,31 @@
  */
 import { ROLE_RANK, type Role } from './domain.js';
 
+/**
+ * Every governed action in the platform.
+ *
+ * **There is deliberately no `budget:delete`.** A budget is amended, superseded
+ * or returned for revision - never removed. The reasons are structural rather
+ * than a matter of taste:
+ *
+ *   - Audit entries reference budget ids. Deleting the budget leaves a
+ *     hash-chained trail that still verifies while pointing at nothing, which
+ *     is worse than a gap because it looks intact.
+ *   - Variance reporting is measured against a locked baseline. Removing a
+ *     budget silently rewrites the comparison behind reports already issued.
+ *   - An ADMIN-only delete is exactly the override shape SOD-01 warns about:
+ *     added for one urgent case, then permanent.
+ *
+ * The permission existed here for months while no route implemented it, which
+ * is the only reason it could be removed rather than argued about. If a genuine
+ * need for removal appears, it is a *reversal* - a new record that supersedes
+ * the old one and leaves both visible - not a delete.
+ *
+ * There is likewise no `actuals:read`. Actuals are never served on their own;
+ * they reach a user through a variance report, a forecast or the leadership
+ * pack, each guarded by its own permission. A second permission that no route
+ * consults would suggest a control that is not there.
+ */
 export const PERMISSIONS = [
   // Budgets
   'budget:read',
@@ -18,7 +43,6 @@ export const PERMISSIONS = [
   'budget:submit',
   'budget:approve',
   'budget:lock',
-  'budget:delete',
   // Cycles & guidance
   'cycle:read',
   'cycle:manage',
@@ -38,7 +62,6 @@ export const PERMISSIONS = [
   'risk:simulate',
   'risk:accept',
   // Actuals & reporting
-  'actuals:read',
   'actuals:import',
   'report:read',
   'report:export',
@@ -59,7 +82,6 @@ const VIEWER: Permission[] = [
   'forecast:read',
   'pricing:read',
   'risk:read',
-  'actuals:read',
   'report:read',
 ];
 
@@ -95,7 +117,7 @@ const FINANCE_MANAGER: Permission[] = [
 
 const CFO: Permission[] = [...FINANCE_MANAGER, 'budget:lock', 'audit:verify'];
 
-const ADMIN: Permission[] = [...CFO, 'budget:delete', 'user:manage', 'settings:manage'];
+const ADMIN: Permission[] = [...CFO, 'user:manage', 'settings:manage'];
 
 /** Frozen so a bug elsewhere cannot mutate the matrix at runtime. */
 export const ROLE_PERMISSIONS: Readonly<Record<Role, ReadonlySet<Permission>>> = Object.freeze({

@@ -172,6 +172,154 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
     },
   );
 
+  // ---- Publication ---------------------------------------------------------
+
+  /**
+   * Issue a leadership pack: freeze it as it stands and record who issued it.
+   *
+   * The pack above is built live from budgets, actuals and forecasts, which is
+   * right for a working view and wrong for a record. Regenerating it a month
+   * later gives different numbers, so a figure quoted in a board meeting could
+   * not be traced back to anything. Publication stores the rendered pack
+   * verbatim and never recomputes it.
+   *
+   * This is the reporting analogue of LCK-01: the locked baseline stops the
+   * comparison moving, this stops the issued report moving.
+   *
+   * `report:publish_leadership` was in the permission matrix and in the user
+   * manual for months while guarding no route at all. This is the action it
+   * was always describing.
+   */
+  app.post(
+    '/leadership-pack/publish',
+    { onRequest: [app.requirePermission('report:publish_leadership')] },
+    async (request, reply) => {
+      const actor = requireUser(request);
+      const body = z
+        .object({
+          cycleId: z.string(),
+          throughPeriod: z.coerce.number().int().min(1).max(12).optional(),
+          title: z.string().min(1).max(200).optional(),
+          note: z.string().max(2000).optional(),
+        })
+        .parse(request.body);
+
+      // Build it here rather than trusting a client-supplied body: a published
+      // pack that the caller could compose would record whatever they chose to
+      // send, which is the opposite of an issued record.
+      const pack = await buildLeadershipPack(body.cycleId, body.throughPeriod);
+
+      const published = await prisma.$transaction(async (tx) => {
+        const row = await tx.publishedReport.create({
+          data: {
+            cycleId: body.cycleId,
+            throughPeriod: body.throughPeriod ?? null,
+            title: body.title ?? `${pack.cycle.name} leadership pack`,
+            snapshot: pack as unknown as object,
+            note: body.note ?? null,
+            publishedById: actor.id,
+          },
+          select: { id: true, title: true, publishedAt: true, throughPeriod: true },
+        });
+
+        await appendAuditEntry(
+          {
+            actorId: actor.id,
+            actorEmail: actor.email,
+            action: 'APPROVE',
+            entityType: 'PublishedReport',
+            entityId: row.id,
+            summary: `Published '${row.title}' for cycle '${pack.cycle.name}'`,
+            changes: {
+              cycleId: body.cycleId,
+              throughPeriod: body.throughPeriod ?? null,
+              ...(body.note ? { note: body.note } : {}),
+            },
+          },
+          tx,
+        );
+
+        return row;
+      });
+
+      return reply.status(201).send({ data: published });
+    },
+  );
+
+  /**
+   * Packs that have been issued. Readable by anyone who may read a report -
+   * knowing what was published, and by whom, is not privileged information.
+   */
+  app.get('/published', { onRequest: [app.requirePermission('report:read')] }, async (request) => {
+    const query = z.object({ cycleId: z.string().optional() }).parse(request.query);
+
+    const rows = await prisma.publishedReport.findMany({
+      where: query.cycleId ? { cycleId: query.cycleId } : {},
+      orderBy: { publishedAt: 'desc' },
+      take: 50,
+      select: {
+        id: true,
+        title: true,
+        throughPeriod: true,
+        note: true,
+        publishedAt: true,
+        cycle: { select: { id: true, name: true, fiscalYear: true } },
+        publishedBy: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+
+    return {
+      data: rows.map((r) => ({
+        id: r.id,
+        title: r.title,
+        throughPeriod: r.throughPeriod,
+        note: r.note,
+        publishedAt: r.publishedAt,
+        cycle: r.cycle,
+        publishedBy: r.publishedBy
+          ? { id: r.publishedBy.id, name: `${r.publishedBy.firstName} ${r.publishedBy.lastName}` }
+          : null,
+      })),
+    };
+  });
+
+  /** One issued pack, exactly as it was issued. */
+  app.get(
+    '/published/:id',
+    { onRequest: [app.requirePermission('report:read')] },
+    async (request) => {
+      const { id } = z.object({ id: z.string() }).parse(request.params);
+
+      const row = await prisma.publishedReport.findUnique({
+        where: { id },
+        include: {
+          cycle: { select: { id: true, name: true, fiscalYear: true } },
+          publishedBy: { select: { id: true, firstName: true, lastName: true } },
+        },
+      });
+      if (!row) throw new AppError('NOT_FOUND', `Published report '${id}' was not found.`);
+
+      return {
+        data: {
+          id: row.id,
+          title: row.title,
+          throughPeriod: row.throughPeriod,
+          note: row.note,
+          publishedAt: row.publishedAt,
+          cycle: row.cycle,
+          publishedBy: row.publishedBy
+            ? {
+                id: row.publishedBy.id,
+                name: `${row.publishedBy.firstName} ${row.publishedBy.lastName}`,
+              }
+            : null,
+          // The frozen pack. Never rebuilt.
+          pack: row.snapshot,
+        },
+      };
+    },
+  );
+
   /**
    * Excel export.
    *

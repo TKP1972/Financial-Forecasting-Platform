@@ -14,6 +14,7 @@ const NAV = [
   { to: '/pricing', label: 'Pricing', icon: '⌗' },
   { to: '/risk', label: 'Risk', icon: '◆' },
   { to: '/variance', label: 'Variance', icon: '⇅' },
+  { to: '/reports', label: 'Reports', icon: '▤' },
   { to: '/governance', label: 'Governance', icon: '⛨' },
   { to: '/reference-data', label: 'Reference data', icon: '⌸' },
 ] as const;
