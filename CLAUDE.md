@@ -118,6 +118,22 @@ once will bite again; a check that fails the build will not.
 - **`npm run db:reset` against a running API leaves it broken.** Dropping and recreating the
   schema invalidates the connection pool's cached statements; reads keep working and writes start
   returning 500. Restart the API after a reset, or reset before bringing the stack up.
+- **A redaction applied per call site will be missed at one of them.** `redactMargin` gates
+  the profit position on the pricing responses, and was applied on three of the four handlers
+  that carry a saved model's figures. The fourth, `GET /pricing/pursuits`, selected
+  `grossMargin` straight out of Prisma and returned it to any holder of `pricing:read` —
+  including VIEWER. The screen rendered "Restricted" over the column client-side, so the page
+  looked right while the figure sat in the response. Test a field-level restriction by calling
+  the API **with the restricted user's own token** and searching the whole response
+  _recursively_; naming the fields you expect is how the leak got in, because the author named
+  them too. `pricing.margin.test.ts` does this and is the pattern to copy for any new
+  margin-bearing route.
+- **A rule the API states and a rule the API enforces must be the same expression.**
+  `GET /cycles/:id` advertised a 12-period axis for a three-year cycle whose budgets require 36,
+  because the endpoint and the validator each computed it their own way. Both had passing tests;
+  a client obeying the advertised value got a 400 that read as its own mistake. Both now call
+  `buildPeriodAxis`. Whenever something is announced in one place and enforced in another, make
+  one call the other rather than testing both harder.
 - **Rebuild the libs after changing a `shared` or `engine` export.** `api` typechecks against
   `packages/shared/dist/*.d.ts`, not the sources, so a field added to a shared interface is
   invisible to it until `npm run build:libs` runs. The symptom is a lie: `tsc` reports the
@@ -151,10 +167,12 @@ mutating seeded state. **`smoke-test-rolling.ps1` is the exception**: it closes 
 consumes the seeded cycle's open periods and `exit 1`s once fewer than two remain. It needs a
 fresh `npm run db:reset` to run again, and in CI it reads as a failure rather than a skip.
 
-**The UI journey drives a real browser.** `npm run test:ui` (or
+**The UI journeys drive a real browser.** `npm run test:ui` (or
 `node scripts/run-e2e.mjs ui-journey`) signs in as each of the five seeded roles through the
 real login form and clicks every nav item, the pricing calculator and the workflow buttons —
-44 assertions. It is **not** in the default `test:e2e` set, because a CI runner without Chrome
+44 assertions. `npm run test:ui:pricing` (`ui-pricing`) covers `pricing:view_margin` on its
+own, 36 assertions, because a field-level restriction is the one a UI can appear to honour
+while not honouring it — it found exactly that. It is **not** in the default `test:e2e` set, because a CI runner without Chrome
 would fail for want of a browser rather than for a defect. `--headed` to watch it.
 
 Three rules make it worth having rather than a screenshot generator:
