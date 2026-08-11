@@ -4,11 +4,16 @@ Conventions and traps specific to this codebase. Read before changing financial 
 
 ## Session discipline
 
-Two project-agnostic skills apply here and in `udis-platform`, kept in sync between the two:
+Two project-agnostic skills apply here and also exist in `udis-platform`:
 `.claude/skills/model-and-token-efficiency` and
 `.claude/skills/governance-and-correspondence-discipline`. The second covers the
 `.internal/correspondence/` convention this repo already uses with UDIS — read it before
 starting a new round rather than re-deriving the convention from old files.
+
+The two skill sets are **not** kept in sync. The owner placed the same starting package in both
+repositories to extract independent value from; each project keeps what serves it and diverges
+freely. Do not "reconcile" them. The one skill with a standing reason to stay roughly aligned is
+`governance-and-correspondence-discipline`, because it documents a bilateral convention.
 
 ## Layout
 

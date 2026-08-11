@@ -63,8 +63,21 @@ Two duplications are known and deliberate:
   cheat sheet carries a **dated price table**, which will go stale and be confidently wrong — the
   exact failure both projects have spent weeks fighting. Treat the skill as authoritative for
   routing rules and check current pricing at the source rather than from a document.
-- Everything here also exists in `udis-platform`. Kept in sync deliberately, so a practice earned
-  in one project is available in the other.
+- Everything here also exists in `udis-platform`, because the owner placed the same package in
+  both repositories. **That was a shared starting point, not an instruction to keep the two sets
+  synchronised** — each project keeps what serves it and diverges from there. Divergence in the
+  five package-derived skills is the intended outcome, not drift to be managed.
+
+  This bullet previously asserted the opposite, as settled fact, without anyone having asked the
+  owner. UDIS's copy carried the identical claim and the owner corrected it there
+  (`.internal/correspondence/2026-08-11-udis-to-ffpe-sync-claim-corrected.md`). Recorded rather
+  than quietly edited, because an unverified claim about _intent_ is the same failure as an
+  unverified measurement — see rule 2 of `governance-and-correspondence-discipline`, which both
+  copies of this claim managed to violate while sitting next to it.
+
+  One exception, kept: `governance-and-correspondence-discipline` documents the live
+  correspondence between the two projects, which is bilateral by nature. It has its own reason to
+  want rough alignment, independent of the package question.
 
 **The compounding rule:** after any session that surfaces a new trap or a corrected assumption,
 put it in the relevant skill. That is the whole mechanism — the skills are only worth their token

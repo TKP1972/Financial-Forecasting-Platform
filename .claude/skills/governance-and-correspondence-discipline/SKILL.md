@@ -20,12 +20,25 @@ it needs to exist somewhere other than the conversation that produced it.
 ## 2. A positive control before trusting a zero or a suspiciously clean result
 
 A search or check that returns "nothing found" is indistinguishable from a broken instrument
-unless it's also been run against something known to produce a hit. This project's single most
-repeated failure pattern — six separate instances — was a confident claim resting on an
-unverified measurement: a wrong file path silently returning an empty result, a `git status`
-call that turned out to write to `.git/index` despite looking read-only, a CSV parser silently
-corrupting a column name on a byte-order mark. Each was caught only once someone ran the check
-against a case they already knew the answer to.
+unless it's also been run against something known to produce a hit. This is the single most
+repeated failure pattern in either project — a confident claim resting on an unverified
+measurement. Six instances predate this session. At least five more happened _during_ it, across
+both projects, which is worth sitting with rather than smoothing over:
+
+- A wrong file path silently returning an empty "zero write-capable calls" result — caught only
+  because a positive control against a known-populated directory was run anyway.
+- `git status`, read-only by name, turning out to write to `.git/index` — a prediction that only
+  became a fact when a test was run and failed on its first execution.
+- A regex requiring `.00` decimals reporting `money=0` on three screens that were full of money.
+- A case-insensitive `VAT` substring search returning 151 hits in a codebase with no tax
+  handling — avoided only because that particular search happened to already use word
+  boundaries. Luck, not judgement.
+- A browser-suite assertion of "no failed requests" reporting three working controls as
+  defects, because the invariant itself was wrong, not the instrument running it.
+
+**A number in this rule going stale is itself an instance of the rule** — noted rather than
+quietly incremented and left to happen again. The count isn't the point; treat any specific
+number here as already out of date, and add to this list rather than trust it.
 
 **Rule:** before reporting a zero, an "all clear," or a count, run the same check against a case
 where you already know it should find something. If that also comes back empty, the instrument
