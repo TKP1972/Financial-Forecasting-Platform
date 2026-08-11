@@ -87,6 +87,7 @@ export async function registerPricingRoutes(app: FastifyInstance): Promise<void>
   // ---- Pursuits ----------------------------------------------------------
 
   app.get('/pursuits', { onRequest: [app.requirePermission('pricing:read')] }, async (request) => {
+    const actor = requireUser(request);
     const query = z
       .object({ stage: z.string().optional(), businessUnitId: z.string().optional() })
       .parse(request.query);
@@ -119,7 +120,15 @@ export async function registerPricingRoutes(app: FastifyInstance): Promise<void>
         expectedAwardDate: p.expectedAwardDate,
         businessUnit: p.businessUnit,
         latestPrice: p.pricingModels[0]?.totalPrice.toString() ?? null,
-        latestMargin: p.pricingModels[0]?.grossMargin?.toString() ?? null,
+        // Gated exactly as redactMargin gates every other margin-bearing
+        // response. This one read grossMargin straight out of Prisma and
+        // returned it, so a Viewer or an Analyst received the profit position
+        // on every pursuit while the screen rendered "Restricted" over it.
+        // Price stays: the restriction is on profit, not on the ability to see
+        // what a pursuit is worth.
+        latestMargin: can(actor.role, 'pricing:view_margin')
+          ? (p.pricingModels[0]?.grossMargin?.toString() ?? null)
+          : null,
       })),
     };
   });
