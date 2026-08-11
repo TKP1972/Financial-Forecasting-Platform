@@ -247,6 +247,7 @@ model User {
   ownedObjectives     StrategicObjective[]
   budgetVersions      BudgetVersion[]
   pricingModels       PricingModel[]
+  approvedPricing     PricingModel[]           @relation("PricingModelApprovedBy")
   rateCards           RateCard[]
   simulations         Simulation[]
   forecastRuns        ForecastRun[]
@@ -875,14 +876,20 @@ model PricingModel {
   npv          Decimal?     @db.Decimal(18, 4)
   irr          Decimal?     @db.Decimal(18, 8)
   version      Int          @default(1)
+  /// Commercial sign-off on this exact version. A new version is a new row and
+  /// starts unapproved, so re-pricing clears the approval by construction
+  /// rather than by a rule someone has to remember - the equivalent of the
+  /// budget's "returning to an editable status clears the sign-off".
   approvedAt   DateTime?
+  approvedById String?
   createdById  String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  pursuit   Pursuit? @relation(fields: [pursuitId], references: [id], onDelete: Cascade)
-  createdBy User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  pursuit    Pursuit? @relation(fields: [pursuitId], references: [id], onDelete: Cascade)
+  createdBy  User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  approvedBy User?    @relation("PricingModelApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
 
   @@index([pursuitId])
   @@map("pricing_models")

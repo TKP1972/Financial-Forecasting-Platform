@@ -24,11 +24,12 @@ Two things distinguish this from a control register that merely asserts its cont
 
 | ID         | Control                    | Prevents                                           | Status       |
 | ---------- | -------------------------- | -------------------------------------------------- | ------------ |
-| **SOD-01** | Separation of duties       | Self-approval of budgets                           | **ENFORCED** |
+| **SOD-01** | Separation of duties       | Self-approval of budgets and of bid prices         | **ENFORCED** |
 | **DOA-01** | Delegated authority limits | Commitment beyond a person's authority             | **ENFORCED** |
 | **AUD-01** | Tamper-evident audit trail | Silent alteration or deletion of the record        | **ENFORCED** |
 | **VER-01** | Budget version snapshots   | An approved budget being changed after approval    | **ENFORCED** |
 | **LCK-01** | Locked baseline            | The reporting baseline moving under issued reports | **ENFORCED** |
+| **PRC-01** | Commercial price sign-off  | A bid price committed to a client without approval | **ENFORCED** |
 
 **ENFORCED** means refused server-side by the platform, not warned about and not left to
 procedure. A user cannot opt out, and neither can an administrator.
@@ -37,7 +38,8 @@ procedure. A user cannot opt out, and neither can an administrator.
 
 ## SOD-01 — Separation of duties
 
-**The control.** A budget cannot be approved by whoever prepared or submitted it.
+**The control.** A budget cannot be approved by whoever prepared or submitted it, and a pricing
+model cannot be approved by whoever built it (PRC-01).
 
 **What it prevents.** One person originating a commitment and authorising it. This is the oldest
 control in accounting and the one most often weakened in software, usually by an override added
@@ -192,6 +194,48 @@ intact and are themselves recorded.
 and that no transaction is opened. `smoke-test.ps1` confirms it against a live stack.
 
 **To demonstrate.** Attempt any transition on a locked budget.
+
+---
+
+## PRC-01 — Commercial price sign-off
+
+**The control.** A saved pricing model carries an explicit approval, given by someone who did not
+build it and whose delegated authority covers the total price.
+
+**What it prevents.** A price going to a client with nobody having authorised it. A budget is an
+internal plan that can be revised; a bid price is a multi-year contractual commitment that cannot.
+Before this control existed, anyone holding `pricing:write` — an Analyst, whose delegated authority
+limit is zero — could persist a bid of any value at any margin with no second pair of eyes, while
+an internal budget of $250,001 could not be approved by a Budget Owner. The governance was applied
+to the less binding number.
+
+**How it is enforced.** `approvePricingModel` requires `pricing:approve` (Finance Manager upwards),
+then calls the **same** `assertSeparationOfDuties` and `assertWithinDelegatedAuthority` functions
+the budget approval calls — not a reimplementation of the rules. Authority is checked against
+total price, because that is the exposure being authorised. Refusals are HTTP 403 with codes
+`FORBIDDEN`, `SEPARATION_OF_DUTIES` and `DELEGATED_AUTHORITY_EXCEEDED` respectively, so the reason
+is never ambiguous.
+
+**Approval is per version.** A pricing model is versioned per pursuit, and a new version is a new
+row that starts unapproved. Re-pricing a bid therefore clears the sign-off by construction, rather
+than by a rule someone has to remember to apply — the equivalent of the budget's "returning to an
+editable status clears the prior sign-off", achieved through the data model instead.
+
+**Withdrawal is deliberately not restricted to the original approver.** A price whose assumptions
+have moved must stop being approved regardless of who is available; requiring the same person would
+leave a stale approval standing exactly when someone has noticed it is wrong. The audit trail
+records who withdrew it and why.
+
+**Sign-off status is visible to every role**, including those without `pricing:view_margin`.
+Whether a committed price carries an approval is a governance fact; the margin inside it is a
+commercial one. Concealing the former would hide the control rather than the position it protects.
+
+**Evidence.**
+
+| Test                                      | What it proves                                                                                                                                |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `api/src/routes/pricing.approval.test.ts` | The endpoint reaches all three controls, each asserted by its own error code, with no write attempted on refusal; concurrent approval 409s.   |
+| `scripts/ui-journey/journey-pricing.mjs`  | Against a live stack and a real browser: who is offered the control, who the server honours, that the effect is real, and that it is audited. |
 
 ---
 

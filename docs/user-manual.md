@@ -142,9 +142,10 @@ Runs the cycle and approves the work of others.
 
 ### What you can do
 
-Everything a Budget Owner can, plus: **approve** budgets up to 2,000,000, **manage cycles**
-(open them, set deadlines), **publish the guideline pack**, **import actuals**, **accept risks**,
-**publish leadership reports**, **read the audit trail**, and see the user list.
+Everything a Budget Owner can, plus: **approve** budgets up to 2,000,000, **sign off bid prices**
+up to the same limit, **manage cycles** (open them, set deadlines), **publish the guideline pack**,
+**import actuals**, **accept risks**, **publish leadership reports**, **read the audit trail**, and
+see the user list.
 
 ### What the system will refuse, and why
 
@@ -152,7 +153,12 @@ Everything a Budget Owner can, plus: **approve** budgets up to 2,000,000, **mana
 has no exemption — not for you, not for the CFO, not for an administrator. If you prepared it,
 someone else approves it. The refusal names this explicitly.
 
-**You cannot approve above 2,000,000.** Escalate to the CFO.
+**You cannot approve above 2,000,000.** Escalate to the CFO. This applies to a **bid price** as
+well as to a budget, and it is measured against the total price of the pursuit — most large bids
+will exceed your limit and need the CFO.
+
+**You cannot sign off a price you built.** Separation of duties applies to pricing exactly as it
+applies to budgets, and for the same reason.
 
 **You cannot lock a budget.** Locking makes a budget the reporting baseline and is reserved for
 the CFO.
@@ -166,6 +172,12 @@ is not the person who certifies that the record of those approvals is intact.
 **Your approval is a control, not a formality.** It asserts that you have examined the submission
 and that it is within your authority. It is recorded permanently and it is the specific thing an
 auditor will sample.
+
+**A price sign-off is the more consequential of the two.** A budget is an internal plan that can be
+revised next quarter; a price is what the business commits to a client and cannot take back. Sign
+off the version, not the pursuit — re-pricing a bid clears the approval automatically, so a figure
+that has moved since you looked at it is never still carrying your name. If assumptions change
+after you have signed, **withdraw the approval**; you do not need to be the person who gave it.
 
 You are accountable for the **integrity of the cycle**: that the guideline pack was published
 before people started work, that deadlines were realistic and communicated, and that actuals were
@@ -182,7 +194,8 @@ Final financial authority.
 
 ### What you can do
 
-Everything a Finance Manager can, plus: approve **without limit**, **lock** an approved budget as
+Everything a Finance Manager can, plus: approve **without limit** — budgets and bid prices
+alike — **lock** an approved budget as
 the reporting baseline, and **verify the audit chain**.
 
 ### What the system will refuse, and why

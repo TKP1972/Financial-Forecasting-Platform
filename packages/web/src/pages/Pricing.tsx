@@ -6,7 +6,7 @@ import {
   type ContractType,
   type CostCategory,
 } from '@ffp/shared';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
   Card,
@@ -26,7 +26,12 @@ import {
 import { getData, postData } from '@/lib/api';
 import { decimal, formatDate, humanise, integer, money, money0, percent } from '@/lib/format';
 import { useHasPermission } from '@/lib/permissions';
-import type { PriceToWinResult, PricingResult, PursuitListItem } from '@/types/api';
+import type {
+  PriceToWinResult,
+  PricingApprovalResult,
+  PricingResult,
+  PursuitListItem,
+} from '@/types/api';
 
 interface LabourDraft {
   labourCategory: string;
@@ -296,6 +301,64 @@ function CostVolumeTable({ result }: { result: PricingResult }) {
   );
 }
 
+/**
+ * Commercial sign-off on the latest priced version of a pursuit.
+ *
+ * Approval is per version, so a re-price starts unapproved and this reverts to
+ * "Not signed off" without anyone having to remember to clear it.
+ *
+ * The refusal is explained rather than hidden. A Finance Manager whose
+ * delegated authority is below the bid price gets a specific message from the
+ * API, and it is shown here verbatim - a control that silently does nothing
+ * reads as a broken button, and someone told only "forbidden" goes looking for
+ * a permissions problem they do not have.
+ */
+function SignOffCell({ pursuit }: { pursuit: PursuitListItem }) {
+  const canApprove = useHasPermission()('pricing:approve');
+  const queryClient = useQueryClient();
+
+  const mutate = useMutation({
+    mutationFn: (action: 'approve' | 'withdraw-approval') =>
+      postData<PricingApprovalResult>(`/pricing/models/${pursuit.latestModelId}/${action}`, {}),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pursuits'] }),
+  });
+
+  if (!pursuit.latestModelId) {
+    return <span className="text-slate-400 dark:text-slate-500">No priced version</span>;
+  }
+
+  const approved = pursuit.latestApprovedAt !== null;
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span
+        className={
+          approved
+            ? 'font-medium text-emerald-700 dark:text-emerald-400'
+            : 'text-amber-700 dark:text-amber-400'
+        }
+      >
+        {approved ? `Signed off ${formatDate(pursuit.latestApprovedAt)}` : 'Not signed off'}
+      </span>
+      {canApprove ? (
+        <button
+          type="button"
+          className="btn btn-secondary w-fit"
+          disabled={mutate.isPending}
+          onClick={() => mutate.mutate(approved ? 'withdraw-approval' : 'approve')}
+        >
+          {mutate.isPending ? 'Working…' : approved ? 'Withdraw approval' : 'Approve price'}
+        </button>
+      ) : null}
+      {mutate.isError ? (
+        <span className="text-xs text-rose-700 dark:text-rose-400">
+          {mutate.error instanceof Error ? mutate.error.message : 'Could not update the sign-off.'}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function PriceToWinPanel({ draft }: { draft: ModelDraft }) {
   const [targetMargin, setTargetMargin] = useState(18);
 
@@ -467,7 +530,8 @@ export default function Pricing() {
                 <table className="data-table">
                   <caption>
                     Active and closed pursuits. Latest price is the most recent saved pricing model
-                    version; margin is shown only if your role may see it.
+                    version; margin is shown only if your role may see it. Sign-off applies to that
+                    version alone, so re-pricing a bid clears it.
                   </caption>
                   <thead>
                     <tr>
@@ -485,6 +549,7 @@ export default function Pricing() {
                       <th scope="col" className="num">
                         Margin
                       </th>
+                      <th scope="col">Sign-off</th>
                       <th scope="col">Award expected</th>
                     </tr>
                   </thead>
@@ -512,6 +577,9 @@ export default function Pricing() {
                           ) : (
                             percent(pursuit.latestMargin)
                           )}
+                        </td>
+                        <td>
+                          <SignOffCell pursuit={pursuit} />
                         </td>
                         <td className="tabular-nums">{formatDate(pursuit.expectedAwardDate)}</td>
                       </tr>

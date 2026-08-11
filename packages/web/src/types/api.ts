@@ -435,6 +435,16 @@ export interface PursuitListItem {
   businessUnit: BusinessUnitRef;
   latestPrice: string | null;
   latestMargin: string | null;
+  /** Latest priced version, and whether it carries a commercial sign-off. */
+  latestModelId: string | null;
+  latestApprovedAt: string | null;
+}
+
+export interface PricingApprovalResult {
+  id: string;
+  version: number;
+  approvedAt: string | null;
+  approvedById: string | null;
 }
 
 export interface AppliedBurden {

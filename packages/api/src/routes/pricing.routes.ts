@@ -26,6 +26,10 @@ import { config } from '../config.js';
 import { prisma } from '../db.js';
 import { requireUser } from '../plugins/auth.plugin.js';
 import { appendAuditEntry } from '../services/audit.service.js';
+import {
+  approvePricingModel,
+  withdrawPricingApproval,
+} from '../services/pricing-approval.service.js';
 import type { AuthenticatedUser } from '../services/auth.service.js';
 
 /** Translate the wire contract into the engine's input shape. */
@@ -103,7 +107,13 @@ export async function registerPricingRoutes(app: FastifyInstance): Promise<void>
         pricingModels: {
           orderBy: { version: 'desc' },
           take: 1,
-          select: { id: true, totalPrice: true, grossMargin: true, version: true },
+          select: {
+            id: true,
+            totalPrice: true,
+            grossMargin: true,
+            version: true,
+            approvedAt: true,
+          },
         },
       },
     });
@@ -129,6 +139,11 @@ export async function registerPricingRoutes(app: FastifyInstance): Promise<void>
         latestMargin: can(actor.role, 'pricing:view_margin')
           ? (p.pricingModels[0]?.grossMargin?.toString() ?? null)
           : null,
+        // Not gated by view_margin: whether a committed price carries a
+        // sign-off is a governance fact, and hiding it would conceal the
+        // control rather than the commercial position it protects.
+        latestModelId: p.pricingModels[0]?.id ?? null,
+        latestApprovedAt: p.pricingModels[0]?.approvedAt ?? null,
       })),
     };
   });
@@ -247,7 +262,10 @@ export async function registerPricingRoutes(app: FastifyInstance): Promise<void>
 
       const model = await prisma.pricingModel.findUnique({
         where: { id },
-        include: { pursuit: { select: { id: true, name: true, client: true, stage: true } } },
+        include: {
+          pursuit: { select: { id: true, name: true, client: true, stage: true } },
+          approvedBy: { select: { id: true, firstName: true, lastName: true } },
+        },
       });
       if (!model) throw new AppError('NOT_FOUND', `Pricing model '${id}' was not found.`);
 
@@ -263,8 +281,58 @@ export async function registerPricingRoutes(app: FastifyInstance): Promise<void>
           input: model.input,
           result: redactMargin(model.result as unknown as PricingResult, actor),
           createdAt: model.createdAt,
+          // Approval state is not margin: who signed off a price, and whether
+          // anyone has, is exactly what a Viewer needs to see. Withholding it
+          // would hide the control rather than the commercial position.
+          approvedAt: model.approvedAt,
+          approvedBy: model.approvedBy
+            ? {
+                id: model.approvedBy.id,
+                name: `${model.approvedBy.firstName} ${model.approvedBy.lastName}`,
+              }
+            : null,
+          createdById: model.createdById,
         },
       };
+    },
+  );
+
+  // ---- Commercial sign-off --------------------------------------------------
+
+  /**
+   * Approve a priced bid.
+   *
+   * Separation of duties and delegated authority live in the service, which
+   * calls the same functions the budget approval calls rather than restating
+   * the rules. See pricing-approval.service.ts for why authority is checked
+   * against total price.
+   */
+  app.post(
+    '/models/:id/approve',
+    { onRequest: [app.requirePermission('pricing:approve')] },
+    async (request) => {
+      const actor = requireUser(request);
+      const { id } = z.object({ id: z.string() }).parse(request.params);
+      const { comment } = z
+        .object({ comment: z.string().max(500).optional() })
+        .parse(request.body ?? {});
+
+      return { data: await approvePricingModel(id, actor, comment) };
+    },
+  );
+
+  /** Withdraw a sign-off, so a price whose assumptions have moved stops being approved. */
+  app.post(
+    '/models/:id/withdraw-approval',
+    { onRequest: [app.requirePermission('pricing:approve')] },
+    async (request) => {
+      const actor = requireUser(request);
+      const { id } = z.object({ id: z.string() }).parse(request.params);
+      const { reason } = z
+        .object({ reason: z.string().max(500).optional() })
+        .parse(request.body ?? {});
+
+      return { data: await withdrawPricingApproval(id, actor, reason) };
     },
   );
 

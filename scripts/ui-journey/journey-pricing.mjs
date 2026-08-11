@@ -34,8 +34,6 @@ const SHOTS = join(process.cwd(), 'artifacts', 'ui-journey');
 
 let passed = 0;
 let failed = 0;
-const notes = [];
-
 function check(name, condition, detail = '') {
   if (condition) {
     passed += 1;
@@ -44,12 +42,6 @@ function check(name, condition, detail = '') {
     failed += 1;
     console.log(`  FAIL  ${name}${detail ? `  -> ${detail}` : ''}`);
   }
-}
-
-/** An observation that is not a pass/fail: reported, never silently swallowed. */
-function note(text) {
-  notes.push(text);
-  console.log(`  NOTE  ${text}`);
 }
 
 const section = (t) => console.log(`\n== ${t} ==`);
@@ -354,20 +346,140 @@ try {
   await page.screenshot(join(SHOTS, 'price-to-win-cfo.png'));
 
   // ------------------------------------------------------------------------
-  section('6. Observations');
+  section('6. Commercial sign-off on the price');
 
-  // pricing:approve is in the matrix, granted to Finance Manager upwards, and
-  // documented in docs/user-manual.md as a capability of the role. No route
-  // requires it, no service writes pricing_models.approvedAt, and no screen
-  // offers the action. Recorded rather than asserted: an unimplemented feature
-  // is the owner's call, not a failure this suite should invent a verdict on.
-  const approveGuarded = await api(tokens.financeManager, 'GET', '/pricing/pursuits');
-  if (approveGuarded.status === 200) {
-    note(
-      'pricing:approve is granted to FINANCE_MANAGER/CFO/ADMIN and documented in the user ' +
-        'manual, but no route requires it and pricing_models.approvedAt is never written. ' +
-        'The permission and the schema column both anticipate an approval step that does ' +
-        'not exist.',
+  // pricing:approve was in the matrix and in the user manual for months while
+  // guarding nothing at all - a documented capability that did not exist. Now
+  // that it does, these assert the control end to end: who is offered it, who
+  // the server actually honours, and that the effect is real.
+
+  // Resolve the fixture and normalise to unapproved, so the suite is idempotent
+  // rather than dependent on how the last run left it.
+  const cfoPursuits = await api(tokens.cfo, 'GET', '/pricing/pursuits');
+  const target = (cfoPursuits.body?.data ?? []).find((p) => p.latestModelId);
+  if (!target) {
+    check('a priced pursuit exists to sign off', false, 'no pursuit has a saved pricing model');
+  } else {
+    const modelId = target.latestModelId;
+    if (target.latestApprovedAt) {
+      await api(tokens.cfo, 'POST', `/pricing/models/${modelId}/withdraw-approval`, {
+        reason: 'ui-journey reset',
+      });
+    }
+
+    // --- who the server honours -------------------------------------------
+    // Three different controls answer 403 here, so each asserts its own code.
+    // A bare status check would pass for the wrong reason.
+    const analystApprove = await api(
+      tokens.analyst,
+      'POST',
+      `/pricing/models/${modelId}/approve`,
+      {},
+    );
+    check(
+      'an analyst cannot approve a price - no pricing:approve',
+      analystApprove.status === 403 && analystApprove.body?.error?.code === 'FORBIDDEN',
+      `status=${analystApprove.status} code=${analystApprove.body?.error?.code}`,
+    );
+
+    const fmApprove = await api(
+      tokens.financeManager,
+      'POST',
+      `/pricing/models/${modelId}/approve`,
+      {},
+    );
+    check(
+      'a finance manager holds the permission but not the authority for this bid',
+      fmApprove.status === 403 && fmApprove.body?.error?.code === 'DELEGATED_AUTHORITY_EXCEEDED',
+      `status=${fmApprove.status} code=${fmApprove.body?.error?.code} price=${target.latestPrice}`,
+    );
+
+    // --- who is offered it on screen --------------------------------------
+    for (const [key, identity] of Object.entries(ROLES)) {
+      const who = identity.role.toLowerCase();
+      await signIn(page, identity);
+      await page.goto(`${WEB}/pricing`);
+      await page.click('Pursuits');
+      const text = await page.text();
+      const controls = (await page.controls()).filter((c) => c.visible);
+      const offered = controls.some((c) => /Approve price|Withdraw approval/i.test(c.name));
+      const mayApprove = ['financeManager', 'cfo'].includes(key);
+
+      check(
+        mayApprove
+          ? `${who} is offered the sign-off control`
+          : `${who} is not offered the sign-off control`,
+        offered === mayApprove,
+        `control ${offered ? 'present' : 'absent'}`,
+      );
+
+      // Sign-off state is a governance fact, not a commercial one: every role
+      // must be able to see whether a committed price carries an approval,
+      // including those who may not see the margin inside it.
+      check(
+        `${who} can see whether the price is signed off`,
+        /signed off|not signed off/i.test(text),
+        text.slice(text.indexOf('Sign-off'), text.indexOf('Sign-off') + 60).replace(/\n+/g, ' | '),
+      );
+    }
+
+    // --- the click does what it says --------------------------------------
+    await signIn(page, ROLES.cfo);
+    await page.goto(`${WEB}/pricing`);
+    await page.click('Pursuits');
+    page.drain();
+
+    const clicked = await page.click('Approve price');
+    check('the CFO can press "Approve price"', clicked.ok, clicked.reason ?? '');
+
+    // Verified against the API, not against the screen that caused it.
+    const afterApprove = await api(tokens.cfo, 'GET', '/pricing/pursuits');
+    const approvedRow = afterApprove.body.data.find((p) => p.latestModelId === modelId);
+    check(
+      'and the price is really signed off, confirmed against the API',
+      approvedRow?.latestApprovedAt !== null && approvedRow?.latestApprovedAt !== undefined,
+      `latestApprovedAt=${approvedRow?.latestApprovedAt}`,
+    );
+    await page.screenshot(join(SHOTS, 'pricing-signed-off-cfo.png'));
+
+    // --- the sign-off is visible without disclosing the margin -------------
+    const analystView = await api(tokens.analyst, 'GET', '/pricing/pursuits');
+    const analystRow = analystView.body.data.find((p) => p.latestModelId === modelId);
+    check(
+      'an analyst sees the sign-off but still no margin',
+      analystRow?.latestApprovedAt !== null && analystRow?.latestMargin === null,
+      `approvedAt=${analystRow?.latestApprovedAt} margin=${analystRow?.latestMargin}`,
+    );
+
+    // --- it is audited, and the chain still verifies -----------------------
+    const audit = await api(tokens.cfo, 'GET', `/governance/audit?pageSize=10&entityId=${modelId}`);
+    const entries = audit.body?.data ?? [];
+    check(
+      'the sign-off is recorded in the audit trail as an APPROVE',
+      entries.some((e) => e.action === 'APPROVE'),
+      `actions=${entries.map((e) => e.action).join(',') || 'none'}`,
+    );
+    const chain = await api(tokens.cfo, 'POST', '/governance/audit/verify', {});
+    check(
+      'and the audit chain still verifies afterwards',
+      chain.body?.data?.valid === true,
+      `reason=${chain.body?.data?.reason}`,
+    );
+
+    // --- withdrawing clears it --------------------------------------------
+    const withdrawn = await api(
+      tokens.cfo,
+      'POST',
+      `/pricing/models/${modelId}/withdraw-approval`,
+      {
+        reason: 'ui-journey teardown',
+      },
+    );
+    check('the sign-off can be withdrawn', withdrawn.status === 200, `status=${withdrawn.status}`);
+    const afterWithdraw = await api(tokens.cfo, 'GET', '/pricing/pursuits');
+    check(
+      'and the pursuit reads as unapproved again, leaving the fixture as found',
+      afterWithdraw.body.data.find((p) => p.latestModelId === modelId)?.latestApprovedAt === null,
     );
   }
 } catch (error) {
@@ -383,7 +495,7 @@ try {
 }
 
 console.log(`\n${'='.repeat(45)}`);
-console.log(`  PASSED: ${passed}    FAILED: ${failed}    NOTES: ${notes.length}`);
+console.log(`  PASSED: ${passed}    FAILED: ${failed}`);
 console.log(`  screenshots -> ${SHOTS}`);
 console.log('='.repeat(45));
 process.exit(failed > 0 ? 1 : 0);
