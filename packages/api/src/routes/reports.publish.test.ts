@@ -21,7 +21,10 @@ const db = vi.hoisted(() => ({
   user: { findUnique: vi.fn() },
   budgetCycle: { findUnique: vi.fn(), findFirst: vi.fn() },
   budget: { findMany: vi.fn() },
-  actual: { findMany: vi.fn() },
+  // aggregate as well as findMany: buildLeadershipPack asks for the latest
+  // period that has actuals, so it can report through that period rather than
+  // comparing a full-year budget against year-to-date spend.
+  actual: { findMany: vi.fn(), aggregate: vi.fn() },
   risk: { findMany: vi.fn() },
   publishedReport: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn() },
   auditLog: { findFirst: vi.fn(), create: vi.fn() },
@@ -56,6 +59,8 @@ beforeEach(async () => {
   });
   db.budget.findMany.mockResolvedValue([]);
   db.actual.findMany.mockResolvedValue([]);
+  // No actuals in this fixture, so the pack falls back to the full year.
+  db.actual.aggregate.mockResolvedValue({ _max: { periodIndex: null } });
   db.risk.findMany.mockResolvedValue([]);
   db.auditLog.findFirst.mockResolvedValue(null);
   db.auditLog.create.mockResolvedValue({});

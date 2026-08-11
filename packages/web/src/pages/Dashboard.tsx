@@ -113,8 +113,24 @@ export default function Dashboard() {
               ? '—'
               : percent(expenditure.utilisation)
           }
-          caption="Consumed against approved budget"
+          caption="Of approved budgets, by the units that hold them"
         />
+        {/*
+          Shown only when there is some, because a zero here is the normal state
+          and a permanent empty tile trains people to stop reading it.
+
+          Utilisation deliberately excludes this spend - it is consumption of a
+          budget nobody has approved yet, so it is not consumption *of* an
+          approved budget. That makes it easy to lose, which is exactly why it
+          gets its own tile rather than a footnote.
+        */}
+        {expenditure && Number(expenditure.unapprovedActual) > 0 ? (
+          <StatTile
+            label="Spent against unapproved budgets"
+            value={money0(expenditure.unapprovedActual, currency)}
+            caption="Real spend, outside the utilisation figure"
+          />
+        ) : null}
         <StatTile
           label="Days to submission"
           value={integer(Math.abs(data.cycle.daysToSubmission))}

@@ -135,6 +135,8 @@ export interface DashboardData {
     consumed: string;
     remaining: string;
     utilisation: number | null;
+    /** Spend in units whose budget is not yet approved, outside the ratio above. */
+    unapprovedActual: string;
   };
   risk?: {
     openRisks: number;

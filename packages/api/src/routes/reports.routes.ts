@@ -448,7 +448,27 @@ async function buildLeadershipPack(
   if (!cycle) throw new AppError('NOT_FOUND', `Budget cycle '${cycleId}' was not found.`);
 
   const periodsInYear = PERIODS_PER_YEAR[cycle.periodType];
-  const through = throughPeriod ?? periodsInYear;
+
+  /**
+   * How far through the year the pack reports, when the caller does not say.
+   *
+   * This defaulted to the whole year, which compared a **full-year budget**
+   * against **year-to-date actuals**. Seven months into a cycle that reported a
+   * 39.5% favourable variance for a business spending almost exactly to plan -
+   * a material misstatement in a document taken into a board meeting, and in
+   * the flattering direction, which is the worse one.
+   *
+   * The latest period that actually has actuals is what a reader means by
+   * "through period N": it makes both sides of the comparison cover the same
+   * months. `actualsThroughPeriod` is deliberately not used - that records how
+   * far periods have been formally *closed*, which is a governance act and is
+   * routinely behind the data.
+   */
+  const latestActual = await prisma.actual.aggregate({
+    where: { cycleId },
+    _max: { periodIndex: true },
+  });
+  const through = throughPeriod ?? latestActual._max.periodIndex ?? periodsInYear;
 
   const [budgets, actuals, risks] = await Promise.all([
     prisma.budget.findMany({
