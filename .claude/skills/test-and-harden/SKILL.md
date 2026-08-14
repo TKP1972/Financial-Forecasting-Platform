@@ -63,6 +63,32 @@ Always include a **negative control** — something that must _not_ trip the che
 fires on everything reads exactly like a detector that works. The check "is this refusal
 explained?" was confirmed both to flag a bare error and to tolerate a properly worded one.
 
+#### A perfect fixture makes a correct-looking test vacuous
+
+Whether an assertion can fail is decided by the **data it runs against**, not by how it is
+written. A test can name the right property, call the right function and assert the right
+comparison, and still be incapable of failing.
+
+The instance: a forecasting suite asserted that linear regression beats a naive forecast — the
+correct skill property — against a fixture of `1000 + i * 50`. OLS on a noiseless straight line is
+exact, so that assertion holds for any implementation that is not actively broken. Its sibling
+fixture was an exactly repeating seasonal pattern with no noise. Both tests passed for years and
+neither could have detected a method that fell apart the moment real data arrived.
+
+The fix is not a better assertion, it is a harder fixture: signal **plus noise**, seeded so a
+failure is reproducible. Once the data is realistic the same assertion becomes a real claim —
+here it separated methods scoring 0.59 from methods scoring 1.36 on the same series.
+
+Two habits that follow:
+
+- **Measure before setting a threshold, then set it with headroom.** Print what the code actually
+  scores, record those numbers in the file, and pick a bound that asserts the property with room
+  for a reasonable fixture change. A threshold sitting on the measured value breaks on the next
+  edit; one set far away asserts nothing.
+- **Prefer a bound that means something independently.** "MASE < 1" is definitional — it means
+  beating the naive baseline — so it survives review in a way "MAPE < 4.2%" never does, because
+  nobody can tell whether 4.2% was reasoned or fitted.
+
 #### Leave shared resources as you found them
 
 A suite that consumes something global must restore it before exiting. A rate limiter, a pool of
