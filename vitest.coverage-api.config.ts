@@ -64,10 +64,21 @@ export default defineConfig({
         // database-down branch (60 -> 83.3). Both were worth a test on their
         // own merits, which is the test of whether covering a branch is real
         // work or box-ticking.
-        lines: 33,
-        functions: 45,
-        branches: 80,
-        statements: 33,
+        // Raised again when the sign-in failure paths and refresh-token
+        // rotation guards were covered: 36.0 lines / 50.8 functions / 81.4
+        // branches / 36.0 statements measured locally.
+        //
+        // The headroom is deliberate and the reason is worth knowing: **local
+        // coverage is not CI coverage.** CI pins Node 22 and this machine runs
+        // Node 24, and V8's coverage instrumentation differs between them by
+        // roughly 0.3 of a percentage point. A change that measured exactly
+        // 80.00 here failed CI at 79.7. So leave at least half a point of
+        // margin when raising these, or the build fails for a reason that
+        // reproduces nowhere a developer can see it.
+        lines: 35,
+        functions: 49,
+        branches: 80.5,
+        statements: 35,
       },
     },
   },

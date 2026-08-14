@@ -311,7 +311,7 @@ something other than what was written.
 
 ## Testing
 
-`npm test` — 1316 unit tests, gated at 90% lines / 85% branches on the engine.
+`npm test` — 1326 unit tests, gated at 90% lines / 85% branches on the engine.
 
 Write tests that assert **independently hand-computed** values, with the derivation in a
 comment. Do not compute an expectation by calling the code under test; a tautological test on
@@ -396,6 +396,18 @@ while writing these. Assert too that the guard was reached _before_ any write:
 target — raise it as suites land, never lower it to make a build pass. It is separate from the
 main run because glob-scoped thresholds did not reliably exempt matched files from the 90/85
 engine gate.
+
+**Local coverage is not CI coverage.** CI pins Node 22 and development here is on Node 24, and
+V8's coverage instrumentation differs between them by roughly 0.3 of a percentage point. A change
+that measured exactly 80.00 locally failed CI at 79.7 — a red build whose cause reproduces
+nowhere a developer can see it. Leave at least half a point of margin when raising a threshold,
+and read a near-threshold local pass as a probable CI failure.
+
+Note also that adding a test can _lower_ a percentage: exercising one path through a file pulls
+all of that file's unexercised branches into the denominator. The fix is to cover the branches
+that deserve it rather than to re-base the threshold — covering the refresh-token rotation guards
+and the sign-in failure paths took `auth.service` from 17% to 83% of statements, and both were
+worth testing on their own merits. That is the test of whether covering a branch is real work.
 
 Vitest is capped at 4 worker threads; each worker loads the whole engine and the Monte Carlo
 suites allocate large typed arrays.
