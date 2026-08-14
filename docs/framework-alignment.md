@@ -149,8 +149,10 @@ being the largest.
 | 1.3  | Multi-year Medium Term Plans            | `horizonYears` on the cycle, `GET /api/v1/cycles/:id/mtp`, `PATCH .../horizon`                       |
 | 2B.2 | Effective-dated rate cards              | `engine/src/pricing/ratecard.ts`, `/api/v1/pricing/rate-cards/*`                                     |
 
-157 new unit tests (930 total) and 110 new end-to-end assertions
+157 new unit tests and 110 new end-to-end assertions
 (`smoke-test-planning.ps1`, `smoke-test-rolling.ps1`, `smoke-test-ratecards.ps1`).
+These are what this tranche added; the current totals are in the README, which is the one
+place that tracks them.
 
 Five design points worth knowing:
 

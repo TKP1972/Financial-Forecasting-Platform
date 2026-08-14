@@ -2,8 +2,13 @@
 #
 #   pwsh ./scripts/smoke-test-rolling.ps1
 #
-# Creates its own MTP cycle so it is idempotent, and closes periods on the
-# seeded FY2026 cycle only if they are not already closed.
+# Creates its own cycles - one to close periods on, one for the MTP checks - so
+# it is idempotent and can run repeatedly against the same database. It used to
+# close periods on the seeded FY2026 cycle and went red once it had spent them.
+#
+# The period-closing fixture is parked in PLANNING at the end: it is OPEN with
+# actuals while the suite runs, which is precisely what the dashboard looks for
+# when it decides which cycle is the live one.
 
 $ErrorActionPreference = 'Stop'
 $base = if ($env:FFP_API_URL) { $env:FFP_API_URL } else { 'http://localhost:4000/api/v1' }
@@ -215,6 +220,24 @@ Check 'period closing is audited' (($audit.data | Where-Object { $_.summary -mat
 Check 'rolling is audited' (($audit.data | Where-Object { $_.summary -match 'Rolled the forecast' }).Count -ge 1) 'not audited'
 $verify = Send 'Post' '/governance/audit/verify' $cfo.accessToken $null
 Check 'audit chain still intact after all of this' ($verify.data.valid -eq $true) "reason: $($verify.data.reason)"
+
+Write-Host "`n== Housekeeping ==" -ForegroundColor Cyan
+# Park the fixture out of the states that mean "in execution".
+#
+# GET /reports/dashboard answers "where are we now?" by taking the newest
+# OPEN or CONSOLIDATING cycle *that has actuals* - deliberately, so that next
+# year's empty cycle does not displace the live one. This fixture is OPEN,
+# has actuals and sits years in the future, so it satisfies that test better
+# than the real cycle does and the dashboard starts reporting a test fixture:
+# 3.27m of spend against a budget of zero. journey-operations caught it as an
+# implausible headline figure, which is exactly its job.
+#
+# CLOSED would be the faithful end of a cycle's life, but closing is refused
+# while budgets are in flight and this suite leaves some there on purpose.
+# PLANNING is reachable, carries no preconditions, and is honest: a fixture
+# is not a cycle anyone is executing.
+$park = Send 'Patch' "/cycles/$cycleId/status" $finmgr.accessToken @{ status = 'PLANNING' }
+Check 'fixture cycle is parked so it cannot pose as the live cycle' ($park.data.status -eq 'PLANNING') "got $($park.data.status)"
 
 Write-Host "`n=====================================" -ForegroundColor Cyan
 Write-Host ("  PASSED: $pass    FAILED: $fail") -ForegroundColor $(if ($fail -eq 0) { 'Green' } else { 'Red' })

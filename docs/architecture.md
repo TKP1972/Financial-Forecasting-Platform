@@ -19,7 +19,7 @@ packages/
 
 The financial math is the part that must not be wrong, and the part most expensive to
 verify. Isolating it from I/O means it can be exhaustively unit-tested with hand-computed
-expected values, no fixtures, no database and no mocking — 773 tests run in under three
+expected values, no fixtures, no database and no mocking — 774 tests run in under three
 seconds. Had the pricing build-up lived inside a route handler, testing a burden-application
 edge case would have meant standing up Postgres and authenticating.
 
