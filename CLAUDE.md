@@ -240,9 +240,31 @@ once will bite again; a check that fails the build will not.
   same arithmetic and opposite news, and totals across mixed types must net favourable against
   adverse rather than summing raw signs.
 
+## Traps in how the work gets done
+
+These cost more time than any product bug, because nothing failed — the tooling quietly did
+something other than what was written.
+
+- **Never author source through a shell heredoc.** The Bash tool halves backslashes on the way
+  through, quoted heredoc or not. A regex written as `/\r?\n/` lands as a literal carriage return
+  and newline _inside the regex literal_; `\b` becomes a backspace, `\u001b` an escape character.
+  If you are lucky it is a syntax error. If you are not, the regex matches something else and every
+  test still passes. It is invisible in an editor and in a diff, which is why it recurred **five
+  times in this repository** before anyone wrote it down. Use the editor tooling, or write a
+  script file with the editor tooling and run that. `check:invariants` now fails the build on
+  stray control characters, and was tested against planted damage rather than assumed to work —
+  its first draft excused carriage returns outright and caught nothing.
+- **Read what the failing thing said before forming a theory about why it failed.**
+  `smoke-test-rolling.ps1` printed its own diagnosis _and_ the remedy at the moment it failed, and
+  CLAUDE.md documented the behaviour, and it was still misdiagnosed twice as a startup race —
+  because `run-e2e.mjs` reported `FAIL suite (exit 1)` with the reason stripped, and the tail is
+  what gets read. The runner now quotes the failing assertions and any explanatory line in its
+  summary. The general rule: a hypothesis formed before reading the output is a guess, and a guess
+  costs a full diagnostic cycle whether or not it is right.
+
 ## Testing
 
-`npm test` — 1005 unit tests, gated at 90% lines / 85% branches on the engine.
+`npm test` — 1306 unit tests, gated at 90% lines / 85% branches on the engine.
 
 Write tests that assert **independently hand-computed** values, with the derivation in a
 comment. Do not compute an expectation by calling the code under test; a tautological test on

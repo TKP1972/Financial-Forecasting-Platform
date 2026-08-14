@@ -130,6 +130,66 @@ const failures = [];
 }
 
 // --------------------------------------------------------------------------
+// 4. No stray control characters in source.
+//
+// The fingerprint of an escape sequence destroyed in transit. Piping source
+// through a shell heredoc halves its backslashes, so a regex authored as
+// /\r?\n/ arrives as a literal carriage return and newline *inside the regex
+// literal*: a syntax error if you are lucky, and a regex that quietly matches
+// something else if you are not. \b becomes a backspace, \u001b an escape
+// character. All of it is invisible in an editor and in a diff, so the file
+// reads as correct while behaving otherwise.
+//
+// This is the most-repeated authoring mistake in this repository - it recurred
+// five times, each costing a full diagnostic cycle on a file that looked right,
+// and it had never been written down. It is mechanical to detect, so it is now
+// detected rather than remembered. The rule it enforces: author source with the
+// editor tooling or from a script file, never through a shell heredoc.
+//
+// Tab, line feed and carriage return are legitimate; everything else in C0,
+// plus DEL, is damage. NUL has its own check above and is left to it.
+// --------------------------------------------------------------------------
+{
+  const offenders = [];
+  for (const file of walk(root)) {
+    if (!/\.(ts|tsx|js|jsx|mjs|cjs|json|ps1|yml|yaml)$/.test(file)) continue;
+
+    readFileSync(file, 'utf8')
+      .split('\n')
+      .forEach((line, index) => {
+        // A trailing carriage return is a CRLF line ending and legitimate. One
+        // in the *middle* of a line is the damage: it is what a regex escape
+        // becomes when its backslash is stripped. The first draft of this check
+        // excused carriage returns outright and therefore caught nothing, which
+        // is why it was tested against planted damage before being trusted.
+        const body = line.endsWith('\r') ? line.slice(0, -1) : line;
+
+        // Compared by code point rather than written as literals, so this file
+        // cannot fail its own check and no formatter can rewrite the test.
+        const bad = [...body].find((ch) => {
+          const code = ch.codePointAt(0);
+          if (code === 0x00 || code === 0x09) return false;
+          return code < 0x20 || code === 0x7f;
+        });
+
+        if (bad !== undefined) {
+          const point = 'U+' + bad.codePointAt(0).toString(16).padStart(4, '0').toUpperCase();
+          offenders.push(relative(root, file) + ':' + (index + 1) + ' (' + point + ')');
+        }
+      });
+  }
+
+  if (offenders.length > 0) {
+    failures.push({
+      title: 'Stray control character in a source file',
+      why: 'Almost always an escape sequence mangled in transit - a regex or template literal whose backslashes were halved by a shell heredoc. Invisible in an editor and in a diff.',
+      fix: 'Rewrite the line with the escape sequence spelled out, and author the file with the editor tooling or from a script file rather than piping it through a shell heredoc.',
+      offenders,
+    });
+  }
+}
+
+// --------------------------------------------------------------------------
 
 if (failures.length === 0) {
   console.log('repo invariants: OK');
