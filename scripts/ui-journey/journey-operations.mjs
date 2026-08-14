@@ -197,6 +197,48 @@ try {
     `unit=${unit.label} account=${account.label}`,
   );
 
+  /**
+   * A parent unit holds no actuals of its own, so nothing under it can be
+   * forecast - and the advice for that is the opposite of the advice for an
+   * empty account. Reported by the owner: the control greyed out with no reason
+   * he could see, and the note that did exist told him to pick another account,
+   * which for a parent unit is a hunt through all fourteen that ends nowhere.
+   *
+   * The reason now lives on the control's own tooltip as well as the note,
+   * because hovering a greyed button is the first thing anyone does.
+   */
+  const parentUnit = await selectByLabel(page, '#fc-unit', 'group');
+  await page.settle();
+  await selectByLabel(page, '#fc-account', '*');
+  await page.settle({ timeoutMs: 20_000 });
+
+  const parentState = await page.evaluate(`(() => {
+    const b = [...document.querySelectorAll('button')].find((x) => x.innerText.includes('Run forecast'));
+    return { disabled: b.disabled, title: b.title };
+  })()`);
+
+  check(
+    'a parent unit disables the run',
+    parentUnit.ok && parentState.disabled === true,
+    `unit=${parentUnit.label} disabled=${parentState.disabled}`,
+  );
+  check(
+    'and the control itself carries the reason, not only a note below it',
+    typeof parentState.title === 'string' && parentState.title.length > 0,
+    `title=${JSON.stringify(parentState.title)}`,
+  );
+  check(
+    'and names the parent unit as the cause rather than blaming the account',
+    /parent unit/i.test(parentState.title) && !/pick another account/i.test(parentState.title),
+    parentState.title,
+  );
+
+  // Back to a series that has history, for the rest of the section.
+  await selectByLabel(page, '#fc-unit', 'mobile');
+  await page.settle();
+  await selectByLabel(page, '#fc-account', 'salaries');
+  await page.settle({ timeoutMs: 20_000 });
+
   // Two different reasons the control can still be disabled, and the screen has
   // to distinguish them: too little history is a data problem the user can act
   // on, and it is not the same as being disallowed.

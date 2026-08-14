@@ -153,6 +153,37 @@ export default function Forecasting() {
   const pointCount = history.data?.length ?? 0;
   const ready = businessUnitId !== '' && accountId !== '' && pointCount >= 2;
 
+  /**
+   * Why the run control is disabled, in the caller's terms.
+   *
+   * Four states disable it and they need four different answers. The screen
+   * used to explain three of them in a note below the button and put a tooltip
+   * on only one, so a user who hovered the greyed control - which is what
+   * everyone does first - got nothing.
+   *
+   * The fourth answer is the one that actually cost time. A parent unit holds
+   * no actuals of its own: they are posted to its operating units. Telling
+   * someone to "pick another account" there is wrong advice, because every
+   * account will fail, and they will work through all fourteen before
+   * suspecting the unit.
+   */
+  const selectedUnit = units.data?.find((unit) => unit.id === businessUnitId);
+  const isParentUnit = (selectedUnit?.childCount ?? 0) > 0;
+
+  const disabledReason = !canRun
+    ? 'Running a forecast requires the forecast:run permission. Ask an analyst or budget owner.'
+    : businessUnitId === '' || accountId === ''
+      ? 'Choose a business unit and an account first — the forecast is built from that series.'
+      : history.isPending
+        ? 'Loading this series…'
+        : history.isError
+          ? 'That series could not be loaded. Retry, or pick another.'
+          : pointCount < 2
+            ? isParentUnit
+              ? `${selectedUnit?.code ?? 'This unit'} is a parent unit, so actuals are posted to the units beneath it rather than to it. Choose one of those instead — no account will have history here.`
+              : `This account has ${pointCount === 0 ? 'no' : 'one'} recorded actual for ${selectedUnit?.code ?? 'this unit'}, and a forecast needs at least two. Pick another account, or import actuals first.`
+            : undefined;
+
   return (
     <>
       <PageHeader
@@ -250,9 +281,9 @@ export default function Forecasting() {
                   className="btn btn-primary"
                   disabled={!canRun || !ready || run.isPending}
                   onClick={() => run.mutate(history.data ?? [])}
-                  title={
-                    canRun ? undefined : 'Running a forecast requires the forecast:run permission'
-                  }
+                  // Every disabled state, not only the permission one. Hovering
+                  // a greyed control is the first thing anyone tries.
+                  title={disabledReason}
                 >
                   {run.isPending ? 'Running…' : 'Run forecast'}
                 </button>
@@ -274,7 +305,7 @@ export default function Forecasting() {
                 ) : (
                   <InlineNote tone={pointCount < 2 ? 'warning' : 'neutral'}>
                     {pointCount < 2
-                      ? 'This series has fewer than two recorded actuals, which is not enough to forecast from. Pick another account, or import actuals first.'
+                      ? disabledReason
                       : `${integer(pointCount)} historical points loaded, from ${history.data?.[0]?.periodKey} to ${history.data?.[pointCount - 1]?.periodKey}.`}
                   </InlineNote>
                 )
