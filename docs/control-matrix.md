@@ -315,7 +315,7 @@ Not registered as controls in their own right, but each supports the ones above.
 
 | Mechanism                     | Why it matters                                                                                                                                                 |
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Role-based access control** | 30 permissions across 6 roles, checked server-side per route. See the user manual.                                                                             |
+| **Role-based access control** | 28 permissions across 6 roles, checked server-side per route. Every one guards a route; see the user manual.                                                   |
 | **Immediate deactivation**    | The user is re-read from the database on every request, so a deactivated account loses access at once rather than at token expiry.                             |
 | **Canonical audit payloads**  | `changes` is stored as canonical JSON with sorted keys and hashed over those exact bytes. Storing it as JSONB would reorder keys and break every verification. |
 | **Period locking**            | Closed periods refuse new actuals, so a restated prior period cannot silently change a published variance.                                                     |
