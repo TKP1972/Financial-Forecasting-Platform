@@ -7,10 +7,14 @@
 # somebody remembering to run them.
 #
 # The end-to-end suites are deliberately NOT here. They need Postgres, the API
-# and the web app running, and smoke-test-rolling.ps1 consumes the seeded
-# cycle's open periods - it passes once against a fresh database and exits 1
-# afterwards. Wiring it in without a per-run reset would produce a red build
-# that everyone learns to ignore, which is worse than not running it.
+# and the web app running, and the browser journeys additionally need Chrome -
+# a runner without one fails for want of a browser rather than for a defect.
+#
+# They are no longer excluded because any of them is one-shot. smoke-test-rolling
+# .ps1 used to consume the seeded cycle's open periods and exit 1 afterwards; it
+# now provisions its own annual cycle each run, so every suite is idempotent and
+# repeatable against the same database. Standing the stack up in CI is the only
+# thing between here and running them.
 name: verify
 
 on:

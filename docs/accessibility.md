@@ -68,7 +68,7 @@ scan was finally run against the code rather than against the memory of it.
 ## What the automated scan now covers
 
 `npm run test:ui:a11y` runs **axe-core** against every screen, as three different roles render it,
-plus the signed-out login page — 35 assertions. As of 2026-08-11 it reports **zero violations at
+plus the signed-out login page — 38 assertions. As of 2026-08-14 it reports **zero violations at
 any impact level** against WCAG 2.1 A and AA.
 
 It found two real defects on its first run, both since fixed:

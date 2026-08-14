@@ -150,7 +150,7 @@ once will bite again; a check that fails the build will not.
   RAG indicator red, a board pack claiming +39.5% favourable. Their causes were unrelated —
   prior-year history attributed to the current cycle, a ratio dividing all units' actuals by
   approved-only budgets, and a report defaulting to a full-year budget against year-to-date
-  actuals. `journey-operations.mjs` §5 now range-checks the headline figures against seeded data.
+  actuals. `journey-operations.mjs` §7 now range-checks the headline figures against seeded data.
   Keep those bounds **loose**: a tight one breaks on every reasonable seed change and gets
   deleted, a loose one only fires when something is genuinely broken.
 - **A plausibility check on the wrong subject cries wolf.** That section first took the newest
@@ -159,6 +159,20 @@ once will bite again; a check that fails the build will not.
   unit red — both correct for a cycle that has not started, and both looking exactly like the
   defects it exists to catch. It now resolves the subject by finding a cycle that actually has
   actuals.
+- **A test fixture that satisfies the product's own "which cycle is live" heuristic will hijack
+  the dashboard.** `GET /reports/dashboard` deliberately picks the newest OPEN or CONSOLIDATING
+  cycle **that has actuals**, precisely so next year's empty cycle cannot displace the live one.
+  When `smoke-test-rolling.ps1` was changed to provision its own cycle, that fixture was OPEN,
+  sat in FY2031 and had imported actuals — so it met the test better than the real FY2026 cycle
+  and the dashboard began reporting 3.27m of spend against a budget of zero. Nothing was broken:
+  the heuristic did exactly what it says, on data that had no business being there. Fixing the
+  suite's own idempotence created a fixture with a property no previous fixture had, and the
+  older ones (budgets, no spend) had been invisible only because the heuristic already excluded
+  them. The suite now parks its fixture in `PLANNING` when it finishes. **A suite that creates a
+  cycle must leave it in a state that cannot be mistaken for the organisation's live one** —
+  `CLOSED` is refused while budgets are in flight, so `PLANNING` is the reachable answer.
+  `journey-operations.mjs` §7 caught this as an implausible headline figure, which is the whole
+  reason that section exists.
 - **`cycleId` on an actual means "belongs to", not "is context for".** The seed attached two prior
   years of forecasting history to the current cycle, so every aggregation `where: { cycleId }`
   summed two and a half years against a one-year budget. `periodKey` distinguishes the years
@@ -299,8 +313,8 @@ to watch any of them.
 | ------------------------ | --------------- | --------------------------------------------------------- |
 | `journey-ui.mjs`         | `ui-journey`    | Sign-in, all 10 nav items per role, workflow buttons (44) |
 | `journey-pricing.mjs`    | `ui-pricing`    | `pricing:view_margin` and price sign-off (55)             |
-| `journey-operations.mjs` | `ui-operations` | Forecasting, risk, variance, reference data (27)          |
-| `journey-a11y.mjs`       | `ui-a11y`       | axe-core over every screen, three roles (35)              |
+| `journey-operations.mjs` | `ui-operations` | Forecasting, risk, variance, reference data (56)          |
+| `journey-a11y.mjs`       | `ui-a11y`       | axe-core over every screen, three roles (38)              |
 
 `journey-ui` is a reachability test — it proves each screen loads or explains itself.
 `journey-operations` is the functional one: it runs a forecast, a simulation and a projection,
