@@ -109,18 +109,21 @@ const PERMISSION_EXCEPTIONS = new Map([
 /**
  * A ratchet, not a target - the same shape as the API coverage gate.
  *
- * 23 of 109 routes had no mention in any test or suite when this was written;
- * user administration took it to 17.
- * That number may only go down. Adding a route without exercising it fails the
- * build; covering one and forgetting to lower the number fails it too, which is
- * the reminder to lower it.
+ * 23 of 109 routes had no mention in any test or suite when this check was
+ * written. All 109 are now exercised, so the budget is **zero** - which is the
+ * strongest form this can take: a route added without a test fails the build,
+ * immediately, with no allowance to spend.
+ *
+ * It fails in both directions on purpose. If the number ever drops below the
+ * budget again - because a route was deleted, say - that fails too, as the
+ * reminder to lower it. A ratchet that is never tightened stops ratcheting.
  *
  * "Mentioned in a test or suite" is a deliberately weak bar - it proves the
  * route is reachable and someone has called it, not that its behaviour is
  * right. Behaviour is what the route tests and journeys are for. This is the
- * floor beneath them.
+ * floor beneath them, and a floor at zero is still only a floor.
  */
-const UNCOVERED_ROUTE_BUDGET = 17;
+const UNCOVERED_ROUTE_BUDGET = 0;
 
 {
   const routes = [];

@@ -39,6 +39,9 @@ const db = vi.hoisted(() => ({
 vi.mock('../db.js', () => ({ prisma: db }));
 
 const { buildApp } = await import('../app.js');
+// Imported rather than faked: the success path has to verify a real hash, and
+// a stubbed verifier would assert nothing about the check it replaces.
+const { hashPassword } = await import('../services/auth.service.js');
 
 const ADMIN = makeUser({ id: 'u-admin', role: 'ADMIN' });
 const CFO = makeUser({ id: 'u-cfo', role: 'CFO' });
@@ -342,6 +345,55 @@ describe('GET /auth/me and POST /auth/change-password', () => {
     });
 
     expect(res.statusCode).toBe(401);
+    expect(db.user.update).not.toHaveBeenCalled();
+  });
+
+  it('changes the password and revokes every existing session', async () => {
+    // The control the header of this file claims and, until now, did not
+    // assert. Changing a password after a suspected compromise is pointless if
+    // the attacker's session survives it, so the revocation is the point rather
+    // than a side effect.
+    const current = 'C0rrect!Horse9';
+    db.user.findUnique.mockResolvedValue(ANALYST);
+    db.user.findUniqueOrThrow.mockResolvedValue({
+      ...ANALYST,
+      passwordHash: await hashPassword(current),
+    });
+    db.user.update.mockResolvedValue({ ...ANALYST });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/change-password',
+      headers: authHeader(app, ANALYST),
+      payload: { currentPassword: current, newPassword: 'A!different9Pass' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().sessionsRevoked).toBeGreaterThan(0);
+    // Stored re-hashed, never as supplied.
+    const stored = db.user.update.mock.calls[0]![0].data.passwordHash;
+    expect(stored).toBeTruthy();
+    expect(stored).not.toContain('A!different9Pass');
+  });
+
+  it('refuses a new password identical to the current one', async () => {
+    // Otherwise "change your password" is satisfiable by not changing it, and
+    // the revocation above becomes a way to log everyone out for nothing.
+    const current = 'C0rrect!Horse9';
+    db.user.findUnique.mockResolvedValue(ANALYST);
+    db.user.findUniqueOrThrow.mockResolvedValue({
+      ...ANALYST,
+      passwordHash: await hashPassword(current),
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/change-password',
+      headers: authHeader(app, ANALYST),
+      payload: { currentPassword: current, newPassword: current },
+    });
+
+    expect(res.statusCode).toBe(400);
     expect(db.user.update).not.toHaveBeenCalled();
   });
 

@@ -53,10 +53,22 @@ export default defineConfig({
        * never lower them to make a build pass.
        */
       thresholds: {
-        lines: 25,
-        functions: 29,
-        branches: 79,
-        statements: 25,
+        // Re-based when route coverage went from 86 of 109 to 109 of 109.
+        //
+        // Lines, statements and functions all rose sharply because whole files
+        // entered scope for the first time. Branches fell 79.6 -> 78.4 for the
+        // same reason and in the opposite direction: exercising a route's happy
+        // path pulls every unexercised branch in its file into the denominator,
+        // so the ratio drops while absolute coverage only rises.
+        //
+        // Set just under the new figure, as the ratchet has always been. Three
+        // of the four moved up materially in the change that moved this one
+        // down by one point; lowering it further to pass a build is not the
+        // same act and is still forbidden.
+        lines: 33,
+        functions: 45,
+        branches: 78,
+        statements: 33,
       },
     },
   },
