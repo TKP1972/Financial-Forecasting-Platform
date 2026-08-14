@@ -33,39 +33,70 @@ $finmgr = Login 'finance.manager@ffp.local' 'FinMgr!Local26'
 $viewer = Login 'viewer@ffp.local' 'Viewer!Local26x'
 $stamp  = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
 
-$cycles  = Invoke-RestMethod -Uri "$base/cycles" -Headers (Bearer $finmgr.accessToken)
-$cycleId = ($cycles.data | Where-Object { $_.fiscalYear -eq 2026 } | Select-Object -First 1).id
+# --------------------------------------------------------------------------
+# This suite provisions its own annual cycle.
+#
+# It used to close periods on the *seeded* FY2026 cycle - two per run, with an
+# `exit 1` once fewer than two remained. So it ran about three times after a
+# reset and then went red for a reason that was not a defect. A suite that
+# reports a failure nobody should act on is a suite people learn to ignore, and
+# it cost real diagnostic time twice before it was fixed rather than documented
+# again.
+#
+# Closing a period is destructive by design - that is the control working. The
+# only durable fix is for the suite to spend a cycle of its own each run instead
+# of the one everything else depends on.
+# --------------------------------------------------------------------------
+$fy = 2031
+$fixture = Send 'Post' '/cycles' $finmgr.accessToken @{
+  name = "Rolling smoke FY$fy $stamp"; fiscalYear = $fy; periodType = 'MONTH'; status = 'OPEN'
+  opensAt = '2030-09-01T00:00:00Z'; submissionDeadline = '2030-10-31T00:00:00Z'
+  approvalDeadline = '2030-11-30T00:00:00Z'; baseCurrency = 'USD'
+}
+$cycleId = $fixture.data.id
+Check 'fixture cycle is created open' ($fixture.data.status -eq 'OPEN') "got $($fixture.data.status)"
 
-Write-Host "`n== Rolling horizon configuration ==" -ForegroundColor Cyan
-$rf0 = Invoke-RestMethod -Uri "$base/cycles/$cycleId/rolling-forecast" -Headers (Bearer $finmgr.accessToken)
-Check 'cycle exposes a rolling horizon' ($rf0.data.cycle.rollingHorizonPeriods -ge 1) "got $($rf0.data.cycle.rollingHorizonPeriods)"
-Check 'cycle reports its closed-period boundary' ($null -ne $rf0.data.cycle.actualsThroughPeriod) 'missing'
+function PeriodKeyOf($n) { return "FY$fy-P" + ([string]$n).PadLeft(2, '0') }
 
-Write-Host "`n== Period closing ==" -ForegroundColor Cyan
-# The cycle advances every run, so the test works relative to wherever the
-# closed boundary currently sits and supplies the actuals it needs itself.
-$startClosed = $rf0.data.cycle.actualsThroughPeriod
 $units    = Invoke-RestMethod -Uri "$base/org/business-units" -Headers (Bearer $finmgr.accessToken)
 $accounts = Invoke-RestMethod -Uri "$base/org/accounts" -Headers (Bearer $finmgr.accessToken)
 $unitId   = ($units.data | Where-Object { $_.code -eq 'MOB' }).id
 $acctId   = ($accounts.data | Where-Object { $_.code -eq '6000' }).id
 
-if ($startClosed + 2 -gt 12) {
-  Write-Host "  Cycle is closed through period $startClosed; not enough open periods remain." -ForegroundColor Yellow
-  Write-Host "  Re-seed (npm run db:seed after a reset) to exercise the closing path again." -ForegroundColor Yellow
-  exit 1
-}
+Write-Host "`n== Rolling horizon configuration ==" -ForegroundColor Cyan
+# Rolling a cycle with nothing closed is refused 409, not answered with an
+# empty roll: a forecast anchored on nothing is worse than no forecast. Only
+# reachable on a fresh cycle, so the old suite could not cover it at all.
+#
+# This assertion was written as 400 first, on the assumption that the missing
+# rolling horizon would be the complaint. The API checks the closed-period
+# anchor first and says so. Probe, then assert.
+try {
+  Send 'Post' "/cycles/$cycleId/roll" $finmgr.accessToken @{ method = 'NAIVE' } | Out-Null
+  Check 'roll refused before any period is closed' $false 'was allowed'
+} catch { Check 'roll refused before any period is closed' ($_.Exception.Response.StatusCode.value__ -eq 409) "status $($_.Exception.Response.StatusCode.value__)" }
 
-$firstClose  = $startClosed + 1
-$secondClose = $startClosed + 2
-function PeriodKeyOf($n) { return "FY2026-P" + ([string]$n).PadLeft(2, '0') }
+$hz = Send 'Patch' "/cycles/$cycleId/horizon" $finmgr.accessToken @{ horizonYears = 1; rollingHorizonPeriods = 12 }
+Check 'rolling horizon is configurable' ($hz.data.rollingHorizonPeriods -eq 12) "got $($hz.data.rollingHorizonPeriods)"
 
-# Make sure both periods have actuals to close over.
+$rf0 = Invoke-RestMethod -Uri "$base/cycles/$cycleId/rolling-forecast" -Headers (Bearer $finmgr.accessToken)
+Check 'cycle exposes a rolling horizon' ($rf0.data.cycle.rollingHorizonPeriods -ge 1) "got $($rf0.data.cycle.rollingHorizonPeriods)"
+Check 'cycle reports its closed-period boundary' ($null -ne $rf0.data.cycle.actualsThroughPeriod) 'missing'
+
+Write-Host "`n== Period closing ==" -ForegroundColor Cyan
+# A roll needs two closed periods of history before it can forecast anything,
+# so the fixture supplies three and closes through the second.
+$firstClose  = 2
+$secondClose = 3
+
+# Actuals for every period that will be closed, plus the one before them: the
+# forecaster skips a series with fewer than two closed points of history.
 Send 'Post' '/variance/actuals/import' $finmgr.accessToken @{
   cycleId = $cycleId
   entries = @(
-    @{ businessUnitId = $unitId; accountId = $acctId; periodKey = (PeriodKeyOf $firstClose);  amount = '1050000.0000' },
-    @{ businessUnitId = $unitId; accountId = $acctId; periodKey = (PeriodKeyOf $secondClose); amount = '1075000.0000' }
+    @{ businessUnitId = $unitId; accountId = $acctId; periodKey = (PeriodKeyOf 1); amount = '1025000.0000' },
+    @{ businessUnitId = $unitId; accountId = $acctId; periodKey = (PeriodKeyOf 2); amount = '1050000.0000' },
+    @{ businessUnitId = $unitId; accountId = $acctId; periodKey = (PeriodKeyOf 3); amount = '1075000.0000' }
   )
 } | Out-Null
 
