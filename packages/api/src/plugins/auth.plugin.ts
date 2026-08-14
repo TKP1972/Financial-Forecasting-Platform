@@ -79,7 +79,8 @@ export const authPlugin = fp(
         lastName: user.lastName,
         role: user.role as Role,
         businessUnitId: user.businessUnitId,
-        approvalLimit: effectiveApprovalLimit({
+        approvalLimit: user.approvalLimit?.toString() ?? null,
+        effectiveApprovalLimit: effectiveApprovalLimit({
           role: user.role,
           approvalLimit: user.approvalLimit?.toString(),
         }),

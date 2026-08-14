@@ -158,7 +158,12 @@ export async function registerGovernanceRoutes(app: FastifyInstance): Promise<vo
         role: user.role,
         isActive: user.isActive,
         businessUnit: user.businessUnit,
-        approvalLimit: effectiveApprovalLimit({
+        // The stored override, which is what PATCH /users/:id writes back. This
+        // list previously returned the *resolved* limit under this name, so a
+        // future admin form seeded from it and saved unchanged would have
+        // converted "inherits the role default" into an explicit override.
+        approvalLimit: user.approvalLimit?.toString() ?? null,
+        effectiveApprovalLimit: effectiveApprovalLimit({
           role: user.role,
           approvalLimit: user.approvalLimit?.toString(),
         }),

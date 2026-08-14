@@ -31,6 +31,7 @@ function session(permissions: string[], overrides: Record<string, unknown> = {})
       role: 'BUDGET_OWNER',
       businessUnitId: 'bu-1',
       approvalLimit: '250000',
+      effectiveApprovalLimit: '250000',
       permissions: permissions as never,
       ...overrides,
     },

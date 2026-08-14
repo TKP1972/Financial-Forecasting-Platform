@@ -280,6 +280,11 @@ export async function transitionBudget(
     });
 
     // (4) Delegated authority.
+    // Resolved here rather than read off the actor, for the same reason the
+    // period axis is computed by calling buildPeriodAxis: a derived value
+    // carried on a DTO has to be populated at every construction site, and a
+    // missed one fails closed on every approval. Both sides call the same
+    // function, which is the guarantee that matters.
     const limit = effectiveApprovalLimit(actor);
     assertWithinDelegatedAuthority(budget.totalAmount.toString(), limit);
   }

@@ -88,6 +88,8 @@ export async function approvePricingModel(
 
   // Against total price, not margin: the exposure being authorised is the
   // amount committed to the client.
+  // Resolved through the same function the API reports with - see the note in
+  // budget.service on why this is not read off the actor.
   const limit = effectiveApprovalLimit(actor);
   assertWithinDelegatedAuthority(model.totalPrice.toString(), limit);
 

@@ -31,7 +31,11 @@ const SESSION: SessionPayload = {
     lastName: 'Nwosu',
     role: 'ANALYST',
     businessUnitId: 'bu-1',
+    // No override; an analyst's default is '0'. The pair is deliberately
+    // unequal here - null stored, '0' applied - because that is the shape the
+    // two fields exist to keep distinguishable.
     approvalLimit: null,
+    effectiveApprovalLimit: '0',
     permissions: ['budget:read', 'budget:write'],
   },
 };

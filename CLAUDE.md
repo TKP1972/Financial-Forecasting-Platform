@@ -228,9 +228,29 @@ once will bite again; a check that fails the build will not.
   administrator as having _no ceiling_ while every approval path held them to zero, which is the
   opposite of what ADM-01 exists to say. Enforcement was right the whole time; only the
   description was wrong, and no test caught it because each side was individually correct.
-  `effectiveApprovalLimit()` is now the single expression, used by both approval services, the
-  governance user list, the notification candidate filter and all three auth responses. **When a
-  nullable column and a nullable policy value share a name, they do not share a meaning.**
+  The first fix reported the resolved limit under the existing name. That removed the wrong
+  answer and introduced a quieter hazard: a client that reads a user and writes it back would
+  save `'0'` into a column that held `null`, converting "inherits the role default" into an
+  explicit override that no longer tracks policy. The governance user list had already been
+  doing this for months. Picking either meaning makes the other unavailable.
+
+  Both facts are now returned under names that cannot be confused. **`approvalLimit` is the
+  stored override** — `null` means "no override", it is what `PATCH /governance/users/:id`
+  writes, and it is safe to round-trip. **`effectiveApprovalLimit` is what applies** — `null`
+  here does mean unlimited. Both are produced by `effectiveApprovalLimit()` in `shared/rbac.ts`,
+  which is the one place the resolution lives.
+
+  The approval services **call that function** rather than reading the reported field off the
+  actor, and the difference matters: a derived value carried on a DTO has to be populated at
+  every construction site, and a missed one fails closed on every approval. Reading it off the
+  actor was tried and broke three existing tests within minutes — the same reason
+  `buildPeriodAxis` is called by both the endpoint and the validator instead of one consuming
+  the other's output.
+
+  **When a nullable column and a nullable policy value share a name, they do not share a
+  meaning — and the fix is to name both, not to choose one.** Guarded by
+  `approval-limit-reporting.test.ts`, which was checked by reinstating the defect and watching
+  four of its five assertions fail.
 
 - **Rebuild the libs after changing a `shared` or `engine` export.** `api` typechecks against
   `packages/shared/dist/*.d.ts`, not the sources, so a field added to a shared interface is
@@ -291,7 +311,7 @@ something other than what was written.
 
 ## Testing
 
-`npm test` — 1311 unit tests, gated at 90% lines / 85% branches on the engine.
+`npm test` — 1316 unit tests, gated at 90% lines / 85% branches on the engine.
 
 Write tests that assert **independently hand-computed** values, with the derivation in a
 comment. Do not compute an expectation by calling the code under test; a tautological test on

@@ -63,7 +63,20 @@ export interface AuthenticatedUser {
   lastName: string;
   role: Role;
   businessUnitId: string | null;
+  /**
+   * This user's own override, exactly as stored. `null` means "no override" -
+   * it does **not** mean unlimited. Never decide anything from this field; it
+   * exists so a client editing a user can write back what it read, without
+   * turning an inherited default into an explicit override.
+   */
   approvalLimit: string | null;
+  /**
+   * The limit that actually applies: the override above, else the role's
+   * default. `null` here *does* mean unlimited, which is the CFO. This is the
+   * field to answer "can this person authorise X?" - and it is the same value
+   * the approval services enforce, because they read it from here.
+   */
+  effectiveApprovalLimit: string | null;
 }
 
 export interface AccessTokenPayload {
@@ -137,7 +150,8 @@ export async function authenticate(email: string, password: string): Promise<Aut
     lastName: user.lastName,
     role: user.role as Role,
     businessUnitId: user.businessUnitId,
-    approvalLimit: effectiveApprovalLimit({
+    approvalLimit: user.approvalLimit?.toString() ?? null,
+    effectiveApprovalLimit: effectiveApprovalLimit({
       role: user.role,
       approvalLimit: user.approvalLimit?.toString(),
     }),
@@ -221,7 +235,8 @@ export async function rotateRefreshToken(
       lastName: stored.user.lastName,
       role: stored.user.role as Role,
       businessUnitId: stored.user.businessUnitId,
-      approvalLimit: effectiveApprovalLimit({
+      approvalLimit: stored.user.approvalLimit?.toString() ?? null,
+      effectiveApprovalLimit: effectiveApprovalLimit({
         role: stored.user.role,
         approvalLimit: stored.user.approvalLimit?.toString(),
       }),
