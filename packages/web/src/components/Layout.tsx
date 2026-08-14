@@ -17,6 +17,10 @@ const NAV = [
   { to: '/reports', label: 'Reports', icon: '▤' },
   { to: '/governance', label: 'Governance', icon: '⛨' },
   { to: '/reference-data', label: 'Reference data', icon: '⌸' },
+  // Last, and reachable by every role including a Viewer: it is the screen that
+  // explains the other ten, and the one a person opening this for the first
+  // time needs before any of them make sense.
+  { to: '/about', label: 'About', icon: '◎' },
 ] as const;
 
 /**

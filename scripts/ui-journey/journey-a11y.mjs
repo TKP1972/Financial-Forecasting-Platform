@@ -64,6 +64,7 @@ const PAGES = [
   ['Reports', '/reports'],
   ['Governance', '/governance'],
   ['Reference data', '/reference-data'],
+  ['About', '/about'],
 ];
 
 /**

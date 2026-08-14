@@ -74,6 +74,7 @@ const NAV = [
   ['Reports', '/reports'],
   ['Governance', '/governance'],
   ['Reference data', '/reference-data'],
+  ['About', '/about'],
 ];
 
 // The label the workflow renders for each target status. Kept in step with

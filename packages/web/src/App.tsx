@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Layout from '@/components/Layout';
+import About from '@/pages/About';
 import BudgetDetail from '@/pages/BudgetDetail';
 import Budgets from '@/pages/Budgets';
 import CycleDetail from '@/pages/CycleDetail';
@@ -67,6 +68,7 @@ export default function App() {
         <Route path="/governance" element={<Governance />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/reference-data" element={<ReferenceData />} />
+        <Route path="/about" element={<About />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
