@@ -821,4 +821,15 @@ export interface PriceVolumeResult {
   priceVariance: string;
   /** Cross term, reported rather than silently absorbed into one of the others. */
   jointVariance: string;
+  /**
+   * Whether each effect is good news. Presented instead of a bare sign, because
+   * a variance report signs `budget - actual` and a decomposition signs
+   * `actual - budget`, and a reader cannot tell which they are looking at.
+   */
+  direction: {
+    volume: VarianceDirection;
+    price: VarianceDirection;
+    joint: VarianceDirection;
+    total: VarianceDirection;
+  };
 }

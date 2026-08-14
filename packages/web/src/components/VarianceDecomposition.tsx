@@ -17,14 +17,43 @@
  */
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Card, ErrorState, InlineNote, NumberField, TextField } from '@/components/ui';
+import { ACCOUNT_TYPES, type AccountType, type VarianceDirection } from '@ffp/shared';
+import { Card, ErrorState, InlineNote, NumberField, SelectField, TextField } from '@/components/ui';
 import { postData } from '@/lib/api';
-import { money0 } from '@/lib/format';
+import { humanise, money0 } from '@/lib/format';
 import type { PriceVolumeResult } from '@/types/api';
+
+/**
+ * A magnitude and a direction word, never a bare sign.
+ *
+ * The variance report signs `budget - actual`; a decomposition explains a
+ * change and signs `actual - budget`. Both are standard, and a reader looking
+ * at one number cannot tell which convention produced it. Management accounts
+ * solve this the same way and have for a century: state the amount, then say
+ * favourable or adverse.
+ */
+function Effect({ amount, direction }: { amount: string; direction: VarianceDirection }) {
+  const tone =
+    direction === 'FAVOURABLE'
+      ? 'text-emerald-700 dark:text-emerald-400'
+      : direction === 'UNFAVOURABLE'
+        ? 'text-rose-700 dark:text-rose-400'
+        : 'text-slate-500 dark:text-slate-400';
+
+  return (
+    <span className="whitespace-nowrap">
+      {money0(amount.startsWith('-') ? amount.slice(1) : amount)}{' '}
+      <span className={`text-2xs font-medium ${tone}`}>
+        {direction === 'FAVOURABLE' ? 'F' : direction === 'UNFAVOURABLE' ? 'A' : '—'}
+      </span>
+    </span>
+  );
+}
 
 interface LineDraft {
   id: string;
   label: string;
+  accountType: AccountType;
   budgetVolume: number;
   budgetPrice: number;
   actualVolume: number;
@@ -41,6 +70,7 @@ const INITIAL_LINES: LineDraft[] = [
   {
     id: 'energy',
     label: 'Network energy (MWh)',
+    accountType: 'OPEX',
     budgetVolume: 42000,
     budgetPrice: 118,
     actualVolume: 45360,
@@ -49,6 +79,7 @@ const INITIAL_LINES: LineDraft[] = [
   {
     id: 'field',
     label: 'Field maintenance (site visits)',
+    accountType: 'OPEX',
     budgetVolume: 9600,
     budgetPrice: 340,
     actualVolume: 9120,
@@ -57,6 +88,7 @@ const INITIAL_LINES: LineDraft[] = [
   {
     id: 'interconnect',
     label: 'Interconnect (million minutes)',
+    accountType: 'COGS',
     budgetVolume: 1850,
     budgetPrice: 6200,
     actualVolume: 2035,
@@ -72,6 +104,7 @@ export default function VarianceDecomposition() {
       postData<{ lines: PriceVolumeResult[] }>('/variance/decompose', {
         lines: lines.map((line) => ({
           label: line.label,
+          accountType: line.accountType,
           budgetVolume: line.budgetVolume.toFixed(4),
           budgetPrice: line.budgetPrice.toFixed(4),
           actualVolume: line.actualVolume.toFixed(4),
@@ -87,6 +120,53 @@ export default function VarianceDecomposition() {
   const results = decompose.data?.lines ?? [];
   const total = (pick: (r: PriceVolumeResult) => string) =>
     results.reduce((acc, r) => acc + Number(pick(r)), 0);
+
+  /**
+   * Totals are summed as favourable-positive, not as raw signed effects.
+   *
+   * A cost line overspending and a revenue line overdelivering both produce a
+   * positive `actual - budget`, and adding them gives a number that means
+   * nothing. Netting favourable against adverse is what a consolidated
+   * variance column does, and it is the only sum that survives mixing account
+   * types on one screen.
+   */
+  const netEffect = (
+    pick: (r: PriceVolumeResult) => string,
+    direction: (r: PriceVolumeResult) => VarianceDirection,
+  ) => {
+    const sum = results.reduce((acc, r) => {
+      const magnitude = Math.abs(Number(pick(r)));
+      const d = direction(r);
+      return d === 'FAVOURABLE' ? acc + magnitude : d === 'UNFAVOURABLE' ? acc - magnitude : acc;
+    }, 0);
+    return {
+      amount: Math.abs(sum).toFixed(4),
+      direction: (sum > 0
+        ? 'FAVOURABLE'
+        : sum < 0
+          ? 'UNFAVOURABLE'
+          : 'NEUTRAL') as VarianceDirection,
+    };
+  };
+
+  const netTotals = {
+    volume: netEffect(
+      (r) => r.volumeVariance,
+      (r) => r.direction.volume,
+    ),
+    price: netEffect(
+      (r) => r.priceVariance,
+      (r) => r.direction.price,
+    ),
+    joint: netEffect(
+      (r) => r.jointVariance,
+      (r) => r.direction.joint,
+    ),
+    net: netEffect(
+      (r) => r.totalVariance,
+      (r) => r.direction.total,
+    ),
+  };
 
   return (
     <>
@@ -108,6 +188,7 @@ export default function VarianceDecomposition() {
             <thead>
               <tr>
                 <th scope="col">Line</th>
+                <th scope="col">Type</th>
                 <th scope="col" className="num">
                   Budget quantity
                 </th>
@@ -128,15 +209,32 @@ export default function VarianceDecomposition() {
                   <td>
                     <TextField
                       id={`dec-label-${line.id}`}
-                      label=""
+                      label={`Line name for ${line.label}`}
+                      labelHidden
                       value={line.label}
                       onChange={(value) => update(line.id, { label: value })}
                     />
                   </td>
                   <td>
+                    {/*
+                      Which way is good news. Spending more on a cost is
+                      adverse; earning more revenue is favourable, and the
+                      arithmetic cannot tell them apart.
+                    */}
+                    <SelectField
+                      id={`dec-type-${line.id}`}
+                      label={`Account type for ${line.label}`}
+                      labelHidden
+                      value={line.accountType}
+                      onChange={(value) => update(line.id, { accountType: value as AccountType })}
+                      options={ACCOUNT_TYPES.map((t) => ({ value: t, label: humanise(t) }))}
+                    />
+                  </td>
+                  <td>
                     <NumberField
                       id={`dec-bv-${line.id}`}
-                      label=""
+                      label={`Budget quantity for ${line.label}`}
+                      labelHidden
                       value={line.budgetVolume}
                       onChange={(value) => update(line.id, { budgetVolume: value })}
                     />
@@ -144,7 +242,8 @@ export default function VarianceDecomposition() {
                   <td>
                     <NumberField
                       id={`dec-bp-${line.id}`}
-                      label=""
+                      label={`Budget unit price for ${line.label}`}
+                      labelHidden
                       value={line.budgetPrice}
                       onChange={(value) => update(line.id, { budgetPrice: value })}
                     />
@@ -152,7 +251,8 @@ export default function VarianceDecomposition() {
                   <td>
                     <NumberField
                       id={`dec-av-${line.id}`}
-                      label=""
+                      label={`Actual quantity for ${line.label}`}
+                      labelHidden
                       value={line.actualVolume}
                       onChange={(value) => update(line.id, { actualVolume: value })}
                     />
@@ -160,7 +260,8 @@ export default function VarianceDecomposition() {
                   <td>
                     <NumberField
                       id={`dec-ap-${line.id}`}
-                      label=""
+                      label={`Actual unit price for ${line.label}`}
+                      labelHidden
                       value={line.actualPrice}
                       onChange={(value) => update(line.id, { actualPrice: value })}
                     />
@@ -189,6 +290,7 @@ export default function VarianceDecomposition() {
                 {
                   id: `line-${Date.now()}`,
                   label: 'New line',
+                  accountType: 'OPEX',
                   budgetVolume: 0,
                   budgetPrice: 0,
                   actualVolume: 0,
@@ -222,10 +324,11 @@ export default function VarianceDecomposition() {
           <div className="overflow-x-auto">
             <table className="data-table">
               <caption>
-                Every figure is an <strong>effect on spend</strong>: positive means more money went
-                out than planned. The three components sum to the total — volume measured at the
-                budgeted price, price measured across the budgeted quantity, and the joint term
-                where both moved at once.
+                <strong>F</strong> is favourable, <strong>A</strong> adverse — read against the
+                account type, since overspending a cost and overdelivering revenue are not the same
+                news. The three components sum to the total: volume measured at the budgeted price,
+                price measured across the budgeted quantity, and the joint term where both moved at
+                once. The totals row nets favourable against adverse.
               </caption>
               <thead>
                 <tr>
@@ -256,10 +359,18 @@ export default function VarianceDecomposition() {
                     <td className="font-medium text-slate-800 dark:text-slate-100">{row.label}</td>
                     <td className="num">{money0(row.budgetAmount)}</td>
                     <td className="num">{money0(row.actualAmount)}</td>
-                    <td className="num">{money0(row.volumeVariance)}</td>
-                    <td className="num">{money0(row.priceVariance)}</td>
-                    <td className="num">{money0(row.jointVariance)}</td>
-                    <td className="num font-medium">{money0(row.totalVariance)}</td>
+                    <td className="num">
+                      <Effect amount={row.volumeVariance} direction={row.direction.volume} />
+                    </td>
+                    <td className="num">
+                      <Effect amount={row.priceVariance} direction={row.direction.price} />
+                    </td>
+                    <td className="num">
+                      <Effect amount={row.jointVariance} direction={row.direction.joint} />
+                    </td>
+                    <td className="num font-medium">
+                      <Effect amount={row.totalVariance} direction={row.direction.total} />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -268,10 +379,18 @@ export default function VarianceDecomposition() {
                   <td className="font-medium">Total</td>
                   <td className="num">{money0(total((r) => r.budgetAmount))}</td>
                   <td className="num">{money0(total((r) => r.actualAmount))}</td>
-                  <td className="num">{money0(total((r) => r.volumeVariance))}</td>
-                  <td className="num">{money0(total((r) => r.priceVariance))}</td>
-                  <td className="num">{money0(total((r) => r.jointVariance))}</td>
-                  <td className="num font-medium">{money0(total((r) => r.totalVariance))}</td>
+                  <td className="num">
+                    <Effect {...netTotals.volume} />
+                  </td>
+                  <td className="num">
+                    <Effect {...netTotals.price} />
+                  </td>
+                  <td className="num">
+                    <Effect {...netTotals.joint} />
+                  </td>
+                  <td className="num font-medium">
+                    <Effect {...netTotals.net} />
+                  </td>
                 </tr>
               </tfoot>
             </table>
@@ -306,26 +425,6 @@ export default function VarianceDecomposition() {
                 </dd>
               </div>
             </dl>
-
-            {/*
-              Two sign conventions exist in this product and a finance reader
-              will notice within seconds, so it is said out loud rather than
-              left to be discovered.
-
-              Budget vs actual reports `budget - consumed`, so a positive figure
-              is an underspend and favourable. A decomposition explains a
-              *change*, and is conventionally signed the other way: positive
-              means the change added cost. Both are standard; using either
-              silently on a screen labelled only "variance" is not.
-            */}
-            <div className="mt-4">
-              <InlineNote>
-                These are signed the opposite way to the <strong>Budget vs actual</strong> tab, on
-                purpose. That tab reports budget less spend, so a positive figure is an underspend.
-                This one explains a change, so a positive figure is added cost. Both conventions are
-                standard; what is not standard is using either without saying which.
-              </InlineNote>
-            </div>
           </div>
         </Card>
       ) : null}

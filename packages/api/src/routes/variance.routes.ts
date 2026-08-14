@@ -6,6 +6,7 @@
  */
 import type { FastifyInstance } from 'fastify';
 import {
+  ACCOUNT_TYPES,
   AppError,
   PERIODS_PER_YEAR,
   importActualsSchema,
@@ -369,6 +370,10 @@ export async function registerVarianceRoutes(app: FastifyInstance): Promise<void
               budgetPrice: z.string(),
               actualVolume: z.string(),
               actualPrice: z.string(),
+              // Decides which direction is good news. Defaults in the engine to
+              // OPEX, because a price-and-volume split is nearly always asked
+              // of a cost line.
+              accountType: z.enum(ACCOUNT_TYPES).optional(),
             }),
           )
           .min(1)

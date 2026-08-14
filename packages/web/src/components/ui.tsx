@@ -180,12 +180,21 @@ function useFieldId(explicit?: string): string {
 
 export function Field({
   label,
+  labelHidden = false,
   htmlFor,
   hint,
   children,
   className = '',
 }: {
   label: string;
+  /**
+   * Hide the label visually but keep it in the accessibility tree. For a grid
+   * of inputs whose column heading already says what the cell is, and where a
+   * repeated visible label would be noise. It is *not* a licence to pass an
+   * empty label: a control with no accessible name is a barrier, and axe
+   * reports it as one.
+   */
+  labelHidden?: boolean;
   htmlFor: string;
   hint?: string;
   children: ReactNode;
@@ -193,7 +202,7 @@ export function Field({
 }) {
   return (
     <div className={className}>
-      <label className="field-label" htmlFor={htmlFor}>
+      <label className={labelHidden ? 'sr-only' : 'field-label'} htmlFor={htmlFor}>
         {label}
       </label>
       {children}
@@ -205,6 +214,7 @@ export function Field({
 export function SelectField({
   id,
   label,
+  labelHidden,
   value,
   onChange,
   options,
@@ -214,6 +224,7 @@ export function SelectField({
 }: {
   id?: string;
   label: string;
+  labelHidden?: boolean;
   value: string;
   onChange: (value: string) => void;
   options: Array<{ value: string; label: string }>;
@@ -223,7 +234,13 @@ export function SelectField({
 }) {
   const fieldId = useFieldId(id);
   return (
-    <Field label={label} htmlFor={fieldId} hint={hint} className={className}>
+    <Field
+      label={label}
+      labelHidden={labelHidden}
+      htmlFor={fieldId}
+      hint={hint}
+      className={className}
+    >
       <select
         id={fieldId}
         className="input"
@@ -244,6 +261,7 @@ export function SelectField({
 export function NumberField({
   id,
   label,
+  labelHidden,
   value,
   onChange,
   min,
@@ -254,6 +272,7 @@ export function NumberField({
 }: {
   id?: string;
   label: string;
+  labelHidden?: boolean;
   value: number;
   onChange: (value: number) => void;
   min?: number;
@@ -264,7 +283,13 @@ export function NumberField({
 }) {
   const fieldId = useFieldId(id);
   return (
-    <Field label={label} htmlFor={fieldId} hint={hint} className={className}>
+    <Field
+      label={label}
+      labelHidden={labelHidden}
+      htmlFor={fieldId}
+      hint={hint}
+      className={className}
+    >
       <input
         id={fieldId}
         type="number"
@@ -285,6 +310,7 @@ export function NumberField({
 export function TextField({
   id,
   label,
+  labelHidden,
   value,
   onChange,
   hint,
@@ -294,6 +320,7 @@ export function TextField({
 }: {
   id?: string;
   label: string;
+  labelHidden?: boolean;
   value: string;
   onChange: (value: string) => void;
   hint?: string;
@@ -303,7 +330,13 @@ export function TextField({
 }) {
   const fieldId = useFieldId(id);
   return (
-    <Field label={label} htmlFor={fieldId} hint={hint} className={className}>
+    <Field
+      label={label}
+      labelHidden={labelHidden}
+      htmlFor={fieldId}
+      hint={hint}
+      className={className}
+    >
       <input
         id={fieldId}
         type="text"

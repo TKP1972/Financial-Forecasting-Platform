@@ -221,6 +221,13 @@ export interface PriceVolumeInput {
   budgetPrice: MoneyInput;
   actualVolume: MoneyInput;
   actualPrice: MoneyInput;
+  /**
+   * Decides which direction is good news. Spending more on a cost is adverse;
+   * earning more revenue is favourable, and the arithmetic cannot tell them
+   * apart. Defaults to OPEX because a price-and-volume split is nearly always
+   * asked of a cost line.
+   */
+  accountType?: AccountType;
 }
 
 export interface PriceVolumeResult {
@@ -234,6 +241,22 @@ export interface PriceVolumeResult {
   priceVariance: string;
   /** Cross term, reported separately rather than silently absorbed. */
   jointVariance: string;
+  /**
+   * Whether each effect is good news, decided by {@link varianceDirection}.
+   *
+   * The components here are signed `actual - budget`, because a decomposition
+   * explains a change. A variance report signs the other way, `budget - actual`.
+   * Both conventions are standard and a reader cannot tell which they are
+   * looking at, so neither screen should present a bare sign: the direction
+   * word carries the meaning, and it comes from the same helper the variance
+   * report uses rather than being re-derived here.
+   */
+  direction: {
+    volume: VarianceDirection;
+    price: VarianceDirection;
+    joint: VarianceDirection;
+    total: VarianceDirection;
+  };
 }
 
 /**
@@ -257,6 +280,11 @@ export function decomposePriceVolume(input: PriceVolumeInput): PriceVolumeResult
   const priceVariance = ap.minus(bp).times(bv);
   const jointVariance = av.minus(bv).times(ap.minus(bp));
 
+  const accountType = input.accountType ?? 'OPEX';
+  // varianceDirection reads `budget - actual`; these are `actual - budget`, so
+  // they are negated on the way in rather than the rule being restated.
+  const directionOf = (effect: Decimal) => varianceDirection(effect.negated(), accountType);
+
   return {
     label: input.label,
     budgetAmount: toMoneyString(budgetAmount),
@@ -265,6 +293,12 @@ export function decomposePriceVolume(input: PriceVolumeInput): PriceVolumeResult
     volumeVariance: toMoneyString(volumeVariance),
     priceVariance: toMoneyString(priceVariance),
     jointVariance: toMoneyString(jointVariance),
+    direction: {
+      volume: directionOf(volumeVariance),
+      price: directionOf(priceVariance),
+      joint: directionOf(jointVariance),
+      total: directionOf(actualAmount.minus(budgetAmount)),
+    },
   };
 }
 

@@ -236,6 +236,89 @@ describe('decomposePriceVolume', () => {
     expect(result.jointVariance).toBe('0.0000');
     expect(result.priceVariance).toBe('200.0000');
   });
+
+  /*
+    The direction block exists so a reader never has to know which way the
+    arithmetic is signed. A decomposition signs `actual - budget`; the variance
+    report signs `budget - actual`. Both are standard and a bare number cannot
+    say which it is, so each component states favourable or adverse outright.
+  */
+  it('calls overspend on a cost adverse, and underspend favourable', () => {
+    // 100 @ 10 = 1,000 budget; 120 @ 11 = 1,320 actual. Every component is
+    // money going out above plan, which on a cost line is adverse.
+    const overspent = decomposePriceVolume({
+      label: 'Field hours',
+      budgetVolume: '100',
+      budgetPrice: '10',
+      actualVolume: '120',
+      actualPrice: '11',
+      accountType: 'OPEX',
+    });
+    expect(overspent.direction).toEqual({
+      volume: 'UNFAVOURABLE',
+      price: 'UNFAVOURABLE',
+      joint: 'UNFAVOURABLE',
+      total: 'UNFAVOURABLE',
+    });
+
+    // 200 @ 50 = 10,000 budget; 180 @ 55 = 9,900 actual.
+    //   volume -1,000 (did less: favourable on a cost)
+    //   price  +1,000 (paid more per unit: adverse)
+    //   joint    -100 (favourable)
+    //   total    -100 (favourable)
+    const mixed = decomposePriceVolume({
+      label: 'Circuits',
+      budgetVolume: '200',
+      budgetPrice: '50',
+      actualVolume: '180',
+      actualPrice: '55',
+      accountType: 'OPEX',
+    });
+    expect(mixed.direction).toEqual({
+      volume: 'FAVOURABLE',
+      price: 'UNFAVOURABLE',
+      joint: 'FAVOURABLE',
+      total: 'FAVOURABLE',
+    });
+  });
+
+  it('reverses the verdict for revenue, where more is good news', () => {
+    // The identical arithmetic to the overspend case above: +200 volume,
+    // +100 price, +20 joint. On revenue every one of those is favourable,
+    // which is the whole reason accountType has to be supplied.
+    const result = decomposePriceVolume({
+      label: 'Wholesale minutes',
+      budgetVolume: '100',
+      budgetPrice: '10',
+      actualVolume: '120',
+      actualPrice: '11',
+      accountType: 'REVENUE',
+    });
+    expect(result.volumeVariance).toBe('200.0000');
+    expect(result.direction).toEqual({
+      volume: 'FAVOURABLE',
+      price: 'FAVOURABLE',
+      joint: 'FAVOURABLE',
+      total: 'FAVOURABLE',
+    });
+  });
+
+  it('defaults to a cost line, and calls a nil component neutral', () => {
+    // No accountType supplied. A price-and-volume split is nearly always asked
+    // of a cost, so OPEX is the default - and volume did not move here, so the
+    // volume component is neither good nor bad news.
+    const result = decomposePriceVolume({
+      label: 'Licences',
+      budgetVolume: '100',
+      budgetPrice: '10',
+      actualVolume: '100',
+      actualPrice: '12',
+    });
+    expect(result.direction.volume).toBe('NEUTRAL');
+    expect(result.direction.joint).toBe('NEUTRAL');
+    expect(result.direction.price).toBe('UNFAVOURABLE');
+    expect(result.direction.total).toBe('UNFAVOURABLE');
+  });
 });
 
 describe('decomposeMix', () => {

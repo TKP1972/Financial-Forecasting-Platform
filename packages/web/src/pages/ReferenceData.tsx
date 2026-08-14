@@ -364,7 +364,7 @@ export default function ReferenceData() {
                 <div>
                   <h3 className="mb-1 text-xs font-semibold">What changes</h3>
                   <div className="max-h-64 overflow-y-auto">
-                    <table className="table">
+                    <table className="data-table">
                       <caption className="sr-only">
                         Rows this import would create or update, with the fields affected.
                       </caption>

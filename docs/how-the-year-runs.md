@@ -177,11 +177,14 @@ It is a calculator rather than a report, because a budget line stores an amount 
 and a rate. Whoever knows the operational number supplies it; the arithmetic is done here rather
 than in a spreadsheet nobody can check.
 
-**Mind the signs.** On that tab a positive figure means _added cost_, which is the opposite of the
-Budget vs actual tab, where positive means an underspend. Both conventions are standard — a
-variance report nets budget against spend, a decomposition explains a change — and the screen says
-which is which. Say it out loud in a demonstration before a finance person spots it and wonders
-whether you knew.
+Each component is reported as an amount followed by **F** or **A** — favourable or adverse — the
+way management accounts have stated a variance for a century. That is not decoration. A variance
+report nets budget against spend, so a positive figure is an underspend; a decomposition explains a
+change, so a positive figure is added cost. Both conventions are correct and a bare number cannot
+tell you which produced it, so the platform states the verdict instead of leaving you to infer it
+from a sign. Set the **account type** on each line, because spending more on a cost and earning
+more revenue are the same arithmetic and opposite news. The totals row nets favourable against
+adverse, which is the only sum that holds when a table mixes cost and revenue lines.
 
 _Screens:_ Variance → Report, grouped four ways; What drove it for the split; Projection for the
 outturn. Dashboard for the headline position.

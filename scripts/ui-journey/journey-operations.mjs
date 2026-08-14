@@ -490,12 +490,48 @@ try {
     `${decomposed.actualAmount} - ${decomposed.budgetAmount} != ${decomposed.totalVariance}`,
   );
 
-  // The sign convention here is the opposite of the Budget vs actual tab, which
-  // a finance reader spots immediately. The screen has to say so.
+  // Every component is on a cost line here, and every one of them is money
+  // going out above plan, so all four verdicts must read adverse. The API is
+  // asked directly rather than the screen, because a component that renders
+  // favourable over an overspend is exactly the defect worth catching.
+  check(
+    'each component of an overspend on a cost line is called adverse',
+    decomposed.direction.volume === 'UNFAVOURABLE' &&
+      decomposed.direction.price === 'UNFAVOURABLE' &&
+      decomposed.direction.joint === 'UNFAVOURABLE' &&
+      decomposed.direction.total === 'UNFAVOURABLE',
+    JSON.stringify(decomposed.direction),
+  );
+
+  // The same arithmetic on a revenue line is good news. If this came back
+  // adverse the account type would not be reaching the engine.
+  const asRevenue = (
+    await api(tokens.analyst, 'POST', '/variance/decompose', {
+      lines: [
+        {
+          label: 'Energy',
+          accountType: 'REVENUE',
+          budgetVolume: '42000.0000',
+          budgetPrice: '118.0000',
+          actualVolume: '45360.0000',
+          actualPrice: '131.0000',
+        },
+      ],
+    })
+  ).body.data.lines[0];
+  check(
+    'and the identical figures on a revenue line are called favourable',
+    asRevenue.direction.total === 'FAVOURABLE' &&
+      asRevenue.totalVariance === decomposed.totalVariance,
+    `${asRevenue.direction.total} / ${asRevenue.totalVariance}`,
+  );
+
+  // A bare sign is ambiguous between the two conventions in the product, so
+  // the screen has to render a verdict rather than leave it to be inferred.
   const decompText = await page.text();
   check(
-    'the screen states which way the signs run',
-    /opposite way to the|effect on spend|positive.*added cost/i.test(decompText),
+    'the screen states favourable or adverse rather than a bare sign',
+    /favourable/i.test(decompText) && /adverse/i.test(decompText),
     decompText.slice(0, 160).replace(/\n+/g, ' | '),
   );
 

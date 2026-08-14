@@ -204,6 +204,26 @@ once will bite again; a check that fails the build will not.
   _consumer_ is wrong (`'x' does not exist in type 'Y'. Did you mean...?`) while the source
   plainly declares `x`. Vitest resolves sources through `paths`, so the tests pass at the same
   time — build first, then trust the error.
+- **A CSS rule that loses on specificity fails silently, and no test can see it.**
+  `.data-table th` set `text-left` and outranked a bare `.num` (0,1,1 against 0,1,0), so every
+  `<th className="num">` in the product rendered left-aligned above right-aligned figures. On a
+  nine-column variance table each number then appears to sit under the _next_ heading, and a
+  reader comparing Budget with Actual compares the wrong pair. The markup was correct throughout;
+  nothing was broken except where the pixels landed. Found by looking at a screenshot — 1,304 unit
+  tests, 7 e2e suites and 4 browser journeys all passed over it, and axe reported nothing, because
+  none of them assert position. `.data-table th.num` now wins, and `check:tables` guards the half
+  CSS cannot: a heading and its column disagreeing about whether they are numeric. **When a
+  utility class must override a component rule, check it actually wins.**
+- **Two sign conventions on one product is a defect, not a documentation problem.** A variance
+  report signs `budget − actual` (positive is underspend); a price/volume decomposition signs
+  `actual − budget` (positive is added cost). Both are standard and a bare figure cannot say which
+  produced it. The first fix here was a caption explaining the difference, which is managing a
+  confusion rather than removing one — the owner rejected it, correctly. Money screens state a
+  magnitude and then **F** or **A**, resolved through `varianceDirection()` so the rule stays in
+  one place, which is what management accounts have done for a century. `decomposePriceVolume`
+  takes an `accountType` for the purpose: overspending a cost and overdelivering revenue are the
+  same arithmetic and opposite news, and totals across mixed types must net favourable against
+  adverse rather than summing raw signs.
 
 ## Testing
 
