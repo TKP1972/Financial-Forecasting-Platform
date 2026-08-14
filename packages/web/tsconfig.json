@@ -23,7 +23,11 @@
     "skipLibCheck": true,
     "noEmit": true,
 
-    "baseUrl": ".",
+    // No `baseUrl`: it is deprecated, and since TypeScript 4.4 `paths` entries
+    // resolve relative to the directory holding this file - which is what the
+    // mappings below already assume. Newer editors flag `baseUrl` as an error
+    // while the pinned tsc 5.9.3 does not, so the build stayed green while the
+    // editor showed a problem.
     "paths": {
       "@ffp/shared": ["../shared/src/index.ts"],
       "@/*": ["./src/*"]
