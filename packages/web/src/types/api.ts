@@ -808,3 +808,17 @@ export interface ScenarioComparison {
   /** Sum of supplied probabilities. Surfaced so a gap is visible, not hidden. */
   probabilityCoverage: number;
 }
+
+/** Price / volume / joint split of a single line's variance. */
+export interface PriceVolumeResult {
+  label: string;
+  budgetAmount: string;
+  actualAmount: string;
+  totalVariance: string;
+  /** The volume difference, held at the budgeted price. */
+  volumeVariance: string;
+  /** The price difference, across the budgeted quantity. */
+  priceVariance: string;
+  /** Cross term, reported rather than silently absorbed into one of the others. */
+  jointVariance: string;
+}

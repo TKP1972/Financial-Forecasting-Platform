@@ -14,6 +14,7 @@ import {
   TabPanel,
   Tabs,
 } from '@/components/ui';
+import VarianceDecomposition from '@/components/VarianceDecomposition';
 import { getData } from '@/lib/api';
 import { humanise, integer, money, money0, percent } from '@/lib/format';
 import type { CycleSummary, ProjectionBasis, ProjectionReport, VarianceReport } from '@/types/api';
@@ -475,7 +476,7 @@ function ProjectionTab({ cycleId, currency }: { cycleId: string; currency: strin
 }
 
 export default function Variance() {
-  const [tab, setTab] = useState<'report' | 'projection'>('report');
+  const [tab, setTab] = useState<'report' | 'projection' | 'decomposition'>('report');
   const [cycleId, setCycleId] = useState('');
 
   const cycles = useQuery({
@@ -533,15 +534,26 @@ export default function Variance() {
             tabs={[
               { id: 'report', label: 'Budget vs actual' },
               { id: 'projection', label: 'Full-year projection' },
+              { id: 'decomposition', label: 'What drove it' },
             ]}
           />
           {tab === 'report' ? (
             <TabPanel id="report">
               <ReportTab cycleId={cycleId} currency={currency} />
             </TabPanel>
-          ) : (
+          ) : tab === 'projection' ? (
             <TabPanel id="projection">
               <ProjectionTab cycleId={cycleId} currency={currency} />
+            </TabPanel>
+          ) : (
+            <TabPanel id="decomposition">
+              {/*
+                Not scoped to the selected cycle: it decomposes figures the user
+                supplies, because a budget line stores an amount rather than a
+                quantity and a rate. Sitting here anyway - it is the question a
+                reader asks immediately after seeing a variance.
+              */}
+              <VarianceDecomposition />
             </TabPanel>
           )}
         </>

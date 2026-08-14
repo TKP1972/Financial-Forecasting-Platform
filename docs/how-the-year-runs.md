@@ -167,14 +167,24 @@ Where a variance is material, look at it along more than one axis: the report gr
 business unit, cost category or period, and a cost that is adverse by unit but flat by category is
 telling you something different from one that is adverse everywhere.
 
-> **Not yet on screen.** The engine also decomposes a variance into **price, volume and
-> efficiency** — "we did 9% more work and got 3% worse at it" rather than "we spent 12% more" —
-> and that is available over the API (`POST /variance/decompose`) but has no screen yet. Do not
-> promise it in a demonstration until it does. It is the most senior thing the product can
-> calculate and it is worth building before a serious meeting.
+Then split it. **Variance → What drove it** decomposes a line into the part that is **volume**
+(we did more or less than planned), the part that is **price** (each unit cost more or less), and
+the **joint** term where both moved at once. "We spent 12% more" is not an explanation. "We used
+8% more energy and paid 11% more for it" is, and the two call for different responses — one is a
+demand question, the other a procurement one.
 
-_Screens:_ Variance → Report, grouped four ways; Projection for the outturn. Dashboard for the
-headline position.
+It is a calculator rather than a report, because a budget line stores an amount and not a quantity
+and a rate. Whoever knows the operational number supplies it; the arithmetic is done here rather
+than in a spreadsheet nobody can check.
+
+**Mind the signs.** On that tab a positive figure means _added cost_, which is the opposite of the
+Budget vs actual tab, where positive means an underspend. Both conventions are standard — a
+variance report nets budget against spend, a decomposition explains a change — and the screen says
+which is which. Say it out loud in a demonstration before a finance person spots it and wonders
+whether you knew.
+
+_Screens:_ Variance → Report, grouped four ways; What drove it for the split; Projection for the
+outturn. Dashboard for the headline position.
 
 ### Days 8–10 — the board pack
 

@@ -412,7 +412,95 @@ try {
   await page.screenshot(join(SHOTS, 'variance-projection.png'));
 
   // ------------------------------------------------------------------------
-  section('4. Reference data');
+  section('4. Variance decomposition');
+
+  /**
+   * Price, volume and joint. The engine could always do this and no screen led
+   * there - found while writing the demonstration script, which named it as a
+   * highlight and would have sent somebody hunting for a button in front of a
+   * client.
+   *
+   * The assertion that matters is the identity, not the presence of a table:
+   * the three components must sum to the total, because a decomposition whose
+   * parts do not reconcile is worse than none.
+   */
+  await signIn(page, ROLES.analyst);
+  await page.goto(`${WEB}/variance`);
+  await page.settle();
+
+  const decompTab = await page.click('What drove it');
+  check('the decomposition tab opens', decompTab.ok, decompTab.reason ?? '');
+  await page.settle();
+
+  page.drain();
+  const ranDecomp = await page.click('Decompose');
+  check('an analyst can decompose a variance', ranDecomp.ok, ranDecomp.reason ?? '');
+  await new Promise((r) => setTimeout(r, 1200));
+  check(
+    'and it is answered rather than refused',
+    !page.drain().failedRequests.some((f) => f.status >= 400),
+    'a 4xx or 5xx came back',
+  );
+
+  // Verified against the API rather than by parsing the screen that produced it.
+  const decomposed = (
+    await api(tokens.analyst, 'POST', '/variance/decompose', {
+      lines: [
+        {
+          label: 'Energy',
+          budgetVolume: '42000.0000',
+          budgetPrice: '118.0000',
+          actualVolume: '45360.0000',
+          actualPrice: '131.0000',
+        },
+      ],
+    })
+  ).body.data.lines[0];
+
+  // Hand-computed: volume (45,360 - 42,000) x 118 = 396,480; price
+  // (131 - 118) x 42,000 = 546,000; joint 3,360 x 13 = 43,680. Total 986,160,
+  // which is 5,942,160 - 4,956,000.
+  check(
+    'the volume effect is the quantity change at the budgeted price',
+    Number(decomposed.volumeVariance) === 396480,
+    `volume=${decomposed.volumeVariance}`,
+  );
+  check(
+    'the price effect is the rate change across the budgeted quantity',
+    Number(decomposed.priceVariance) === 546000,
+    `price=${decomposed.priceVariance}`,
+  );
+  check(
+    'the components sum to the total, so nothing is unexplained',
+    Math.abs(
+      Number(decomposed.volumeVariance) +
+        Number(decomposed.priceVariance) +
+        Number(decomposed.jointVariance) -
+        Number(decomposed.totalVariance),
+    ) < 0.0001,
+    `${decomposed.volumeVariance} + ${decomposed.priceVariance} + ${decomposed.jointVariance} != ${decomposed.totalVariance}`,
+  );
+  check(
+    'and the total reconciles to actual minus budget',
+    Math.abs(
+      Number(decomposed.actualAmount) -
+        Number(decomposed.budgetAmount) -
+        Number(decomposed.totalVariance),
+    ) < 0.0001,
+    `${decomposed.actualAmount} - ${decomposed.budgetAmount} != ${decomposed.totalVariance}`,
+  );
+
+  // The sign convention here is the opposite of the Budget vs actual tab, which
+  // a finance reader spots immediately. The screen has to say so.
+  const decompText = await page.text();
+  check(
+    'the screen states which way the signs run',
+    /opposite way to the|effect on spend|positive.*added cost/i.test(decompText),
+    decompText.slice(0, 160).replace(/\n+/g, ' | '),
+  );
+
+  // ------------------------------------------------------------------------
+  section('5. Reference data');
 
   // The chart of accounts and the unit hierarchy are what every budget is built
   // from, so importing over them is an administrator's job alone.
@@ -444,7 +532,7 @@ try {
   }
 
   // ------------------------------------------------------------------------
-  section('5. Scenario planning is reachable');
+  section('6. Scenario planning is reachable');
 
   // Driver-based scenario comparison was built in the engine, exposed on the
   // API, and led to by nothing. "What if subscribers grow 2% instead of 5%" is
@@ -540,7 +628,7 @@ try {
   );
 
   // ------------------------------------------------------------------------
-  section('6. The headline numbers are believable');
+  section('7. The headline numbers are believable');
 
   /**
    * Plausibility, which is not a property any other test asserts.
