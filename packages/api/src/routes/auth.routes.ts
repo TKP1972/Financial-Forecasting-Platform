@@ -6,7 +6,6 @@
  */
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
-  effectiveApprovalLimit,
   AppError,
   createUserSchema,
   loginSchema,
@@ -47,7 +46,10 @@ function publicUser(user: AuthenticatedUser) {
     lastName: user.lastName,
     role: user.role,
     businessUnitId: user.businessUnitId,
-    approvalLimit: effectiveApprovalLimit({ role: user.role, approvalLimit: user.approvalLimit }),
+    // Both, deliberately: the stored override so a client can write back what
+    // it read, and the resolved limit so nothing has to re-derive policy.
+    approvalLimit: user.approvalLimit,
+    effectiveApprovalLimit: user.effectiveApprovalLimit,
     permissions: permissionsFor(user.role),
   };
 }

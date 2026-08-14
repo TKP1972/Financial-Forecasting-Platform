@@ -9,7 +9,10 @@ export interface SessionUser {
   lastName: string;
   role: Role;
   businessUnitId: string | null;
+  /** This user's own override. `null` means "no override", not "unlimited". */
   approvalLimit: string | null;
+  /** What actually applies. `null` here does mean unlimited. Read this one. */
+  effectiveApprovalLimit: string | null;
   permissions: Permission[];
 }
 
