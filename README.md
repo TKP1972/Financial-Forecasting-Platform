@@ -283,6 +283,12 @@ packages/
 coverage it does. See [docs/architecture.md](docs/architecture.md) for the reasoning behind
 the significant decisions, and [docs/runbook.md](docs/runbook.md) for operating it.
 
+[docs/how-the-year-runs.md](docs/how-the-year-runs.md) is the one to read before demonstrating
+this to anyone: who does what across a planning year and a reporting month, why the platform
+refuses what it refuses, the vocabulary a finance audience uses, a demonstration in order, and
+honest answers to the questions that get asked — including the ones where the answer is "it does
+not do that".
+
 [docs/framework-alignment.md](docs/framework-alignment.md) maps this platform against the
 Agentic AI Financial Forecasting & Budgeting Framework, with an honest built / partial /
 not-started assessment and a recommended build sequence.

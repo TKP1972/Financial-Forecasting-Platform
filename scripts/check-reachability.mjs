@@ -28,6 +28,15 @@
  * What survives is what produced real findings. Exceptions are declared with a
  * reason, and the list doubles as the register of deliberate decisions.
  *
+ * **Known limit: this cannot see UI reachability.** A route is "exercised" if a
+ * test or suite calls it, which says nothing about whether any screen leads
+ * there. `POST /variance/decompose` is the live example - guarded, tested,
+ * green here, and reachable by no user. The route-to-UI rule was dropped in the
+ * first draft because it produced 50 informational hits and would have been
+ * ignored within a week. Finding that class still takes a person walking the
+ * product, which is what the browser journeys and a demonstration script are
+ * for.
+ *
  *   node scripts/check-reachability.mjs
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
