@@ -32,6 +32,7 @@ Two things distinguish this from a control register that merely asserts its cont
 | **PRC-01** | Commercial price sign-off        | A bid price committed to a client without approval | **ENFORCED**  |
 | **PUB-01** | Issued report snapshots          | A tabled figure that cannot be reproduced later    | **ENFORCED**  |
 | **DEL-01** | No deletion of financial records | History being removed rather than superseded       | **BY DESIGN** |
+| **ADM-01** | Administration is not authority  | The system administrator committing spend          | **ENFORCED**  |
 
 **ENFORCED** means refused server-side by the platform, not warned about and not left to
 procedure. A user cannot opt out, and neither can an administrator.
@@ -54,17 +55,26 @@ for an urgent case that then becomes permanent.
 before any write, on every transition to `APPROVED` or `LOCKED`. It compares the actor against the
 recorded preparer and submitter. Refusal is HTTP 403 with code `SEPARATION_OF_DUTIES`.
 
-**No exemption exists for any role, including ADMIN.** The function takes no role parameter — there
-is no argument through which an exemption could be passed. This is recorded in the repository's
-own conventions as a rule that must never be relaxed.
+**No exemption exists for any role.** The function takes no role parameter — there is no argument
+through which an exemption could be passed. This is recorded in the repository's own conventions as
+a rule that must never be relaxed. The CFO, the most senior finance role, is the case that proves
+it binds at the top.
+
+**The System Administrator never reaches this rule**, because it holds no financial authority to be
+exempted from. A budget transition now requires the permission as well as the seniority
+(`TRANSITION_PERMISSION` alongside `TRANSITION_MIN_ROLE`), and ADMIN holds none of the financial
+permissions — so it is refused with `FORBIDDEN` a gate earlier, whether or not it is party to the
+budget. Before this, ADMIN inherited every CFO permission and outranked every finance role, which
+made "no ADMIN bypass of SOD" true and beside the point: it could approve anyone else's budget of
+any size. See ADM-01.
 
 **Evidence.**
 
-| Test                                        | What it proves                                                                                                                                                 |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `shared/src/rbac.test.ts`                   | The rule refuses preparer and submitter, and every role in turn.                                                                                               |
-| `api/src/routes/budgets.transition.test.ts` | The approval **endpoint** actually reaches the rule — preparer refused, submitter refused, applied to `LOCKED` as well as `APPROVED`, and **no ADMIN bypass**. |
-| `smoke-test.ps1`                            | Refused against a live stack.                                                                                                                                  |
+| Test                                        | What it proves                                                                                                                                                                                              |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shared/src/rbac.test.ts`                   | The rule refuses preparer and submitter, and every role in turn.                                                                                                                                            |
+| `api/src/routes/budgets.transition.test.ts` | The approval **endpoint** actually reaches the rule — preparer refused, submitter refused, applied to `LOCKED` as well as `APPROVED`, the CFO refused its own work, and the administrator refused outright. |
+| `smoke-test.ps1`                            | Refused against a live stack.                                                                                                                                                                               |
 
 Each negative test also asserts no database transaction was opened, so a control that raised
 _after_ a partial write would still fail.
@@ -306,6 +316,50 @@ reason the question was still open.
 | -------------------------------- | --------------------------------------------------------------------------------------- |
 | `shared/src/rbac.test.ts`        | No permission ending in `:delete` exists in the matrix at all, for any role.            |
 | `shared/src/user-manual.test.ts` | The published permission reference matches the code, so the manual cannot describe one. |
+
+---
+
+## ADM-01 — Administration is not financial authority
+
+**The control.** The System Administrator holds no financial permission. It may observe (read
+budgets, cycles, forecasts, pricing, risk and reports), audit (read the trail, verify the chain)
+and administer (users, settings, reference data). It may not write, submit, approve or lock a
+budget, manage a cycle, publish guidance, run or publish a forecast, price or approve a bid, see a
+margin, accept a risk, import actuals, or publish a leadership pack. Its default approval limit is
+zero.
+
+**What it prevents.** The classic toxic combination: one identity that can both grant authority to
+others and exercise unlimited authority itself. It is the first pairing an IT general-controls
+review looks for, and the usual finding is a privileged operational account able to approve
+business transactions.
+
+**How it is enforced.** Two changes, and the second is what makes the first bite. `ROLE_PERMISSIONS.ADMIN`
+is now defined explicitly rather than as a superset of `CFO` — the only role in the matrix that is
+not a superset of the one below it. And budget transitions authorise on `TRANSITION_PERMISSION` as
+well as `TRANSITION_MIN_ROLE`: the actor must be senior enough **and** hold the permission. Without
+the second, removing permissions from ADMIN would have changed nothing, because ADMIN's rank of 60
+satisfies every minimum in the seniority table.
+
+**What it does not achieve, stated plainly.** An administrator holds `user:manage`, so it can
+change a role or reset a password. Financial authority therefore remains _reachable_. What the
+control changes is that reaching it is no longer silent: it costs a deliberate alteration of an
+account, recorded in the audit chain against a named administrator, instead of an approval nobody
+had cause to examine. **Detectable, not prevented** — the same standard `docs/audit-threat-model.md`
+holds itself to, and the reason this is written down rather than claimed away.
+
+**This gap was documented before it was closed.** The user manual asserted "deliberately not a
+finance role" from the day it was written, while the matrix granted ADMIN every CFO permission and
+an unlimited approval limit. A machine-checked permission table compared the manual's _matrix_
+against the code and passed, because the contradiction lived in the _prose_. Documentation and
+enforcement agreeing on a table is not the same as agreeing on a claim.
+
+**Evidence.**
+
+| Test                                        | What it proves                                                                                                    |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `shared/src/rbac.test.ts`                   | ADMIN holds exactly 11 permissions, and each of the 17 financial ones is refused **by name** rather than derived. |
+| `api/src/routes/budgets.transition.test.ts` | The endpoint refuses an administrator `FORBIDDEN` on `budget:approve`, involved in the budget or not.             |
+| `shared/src/user-manual.test.ts`            | The published permission reference matches the code for every role, ADMIN included.                               |
 
 ---
 

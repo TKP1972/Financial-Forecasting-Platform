@@ -9,7 +9,7 @@
  * A Finance Manager holds `budget:approve`, but may not approve a budget they
  * prepared themselves, and not above their delegated limit.
  */
-import { ROLE_RANK, type Role } from './domain.js';
+import { ROLE_RANK, type BudgetStatus, type Role } from './domain.js';
 
 /**
  * Every governed action in the platform.
@@ -117,7 +117,48 @@ const FINANCE_MANAGER: Permission[] = [
 
 const CFO: Permission[] = [...FINANCE_MANAGER, 'budget:lock', 'audit:verify'];
 
-const ADMIN: Permission[] = [...CFO, 'user:manage', 'settings:manage'];
+/**
+ * The administrator runs the platform. It does not transact in it.
+ *
+ * This is the one role that is **not** a superset of the one below it, and the
+ * departure is deliberate. An identity that can both manage users and approve
+ * unlimited spend is the segregation-of-duties failure an auditor looks for
+ * first, and the user manual has claimed since it was written that this is
+ * "deliberately not a finance role" - a claim the matrix did not honour until
+ * now, because ADMIN inherited every CFO permission.
+ *
+ * So: it may **observe** (the reads), **audit** (read and verify the chain),
+ * and **administer** (users, settings, reference data). It may not approve a
+ * budget, lock a baseline, sign off a price, accept a risk, import actuals,
+ * publish guidance or a leadership pack, or see the margin on a bid. Its
+ * default approval limit is zero, and budget transitions now require the
+ * permission as well as the seniority, so rank 60 no longer walks past a
+ * control that rank was never meant to open.
+ *
+ * **What this does and does not buy.** An administrator holding `user:manage`
+ * can change a role or reset a password, so financial authority remains
+ * *reachable*. What changes is that reaching it is no longer silent: it takes a
+ * deliberate, audited alteration of an account that names a second identity,
+ * instead of an approval nobody had reason to look at. Detectable, not
+ * prevented - the same standard the audit threat model holds itself to.
+ */
+const ADMIN: Permission[] = [
+  // Observe the system it runs.
+  'budget:read',
+  'cycle:read',
+  'forecast:read',
+  'pricing:read',
+  'risk:read',
+  'report:read',
+  // Audit it. Verification is the administrator's job precisely because they
+  // are not party to what the chain records.
+  'audit:read',
+  'audit:verify',
+  // Administer it.
+  'user:read',
+  'user:manage',
+  'settings:manage',
+];
 
 /** Frozen so a bug elsewhere cannot mutate the matrix at runtime. */
 export const ROLE_PERMISSIONS: Readonly<Record<Role, ReadonlySet<Permission>>> = Object.freeze({
@@ -210,7 +251,9 @@ export const DEFAULT_APPROVAL_LIMITS: Record<Role, string | null> = {
   BUDGET_OWNER: '250000',
   FINANCE_MANAGER: '2000000',
   CFO: null,
-  ADMIN: null,
+  // Zero rather than null: null means "no ceiling", and an administrator is not
+  // an approver at all. See the note on the ADMIN permission set.
+  ADMIN: '0',
 };
 
 /**
@@ -241,6 +284,30 @@ export function assertWithinDelegatedAuthority(
     );
   }
 }
+
+/**
+ * The permission each budget transition requires, alongside
+ * {@link TRANSITION_MIN_ROLE}.
+ *
+ * Seniority alone was the whole authorisation for years, which had two
+ * consequences. `budget:submit`, `budget:approve` and `budget:lock` guarded no
+ * route by name, so a scan for unreachable permissions reported them as dead
+ * when they were not. And ADMIN outranks CFO, so removing a financial
+ * permission from the administrator would have changed nothing at all - rank 60
+ * satisfies every minimum in the table.
+ *
+ * Both gates now apply: the actor must be senior enough **and** hold the
+ * permission. Every existing role satisfies both, so no behaviour changes for
+ * them; what changes is that the permission is now load-bearing.
+ */
+export const TRANSITION_PERMISSION: Record<BudgetStatus, Permission> = {
+  DRAFT: 'budget:write',
+  IN_REVIEW: 'budget:write',
+  SUBMITTED: 'budget:submit',
+  APPROVED: 'budget:approve',
+  REJECTED: 'budget:approve',
+  LOCKED: 'budget:lock',
+};
 
 /** Lowest role whose default limit covers `amount` - used to route escalations. */
 export function requiredApproverRole(amount: string | number): Role {

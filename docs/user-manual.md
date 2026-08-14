@@ -30,7 +30,7 @@ cannot be quietly edited. Your actions are attributable long after you have forg
 | **Budget Owner**            | 250,000        | Owns a unit's budget and submits it for approval.                     |
 | **Finance Manager**         | 2,000,000      | Approves budgets, runs the cycle, loads actuals.                      |
 | **Chief Financial Officer** | unlimited      | Approves without limit, locks the baseline, verifies the audit chain. |
-| **System Administrator**    | unlimited      | Manages users and settings. Deliberately not a finance role.          |
+| **System Administrator**    | none           | Manages users, settings and reference data. Not a finance role.       |
 
 Approval limits are per-role defaults and can be raised or lowered **per user** — your effective
 limit may differ. It is shown to you when an approval is refused.
@@ -237,20 +237,42 @@ against someone with direct access to the server who can also read the signing s
 
 ## System Administrator
 
-Runs the platform. **Not a finance role**, despite outranking every finance role.
+Runs the platform. **Not a finance role** — and, unlike every other role, not a superset of the
+one below it.
 
 ### What you can do
 
-Everything, plus: **manage users** (create, deactivate, set roles and per-user approval limits),
-**manage settings**, and **import reference data** — the chart of accounts and business-unit
-hierarchy.
+**Observe** — read budgets, cycles, forecasts, pricing, risk and reports, so you can support the
+people using them. **Audit** — read the audit trail and verify the hash chain, which is properly
+your job precisely because you are not party to what it records. **Administer** — manage users
+(create, deactivate, set roles and per-user approval limits), manage settings, and import
+reference data: the chart of accounts and the business-unit hierarchy.
+
+### What you cannot do
+
+**Anything financial.** You cannot write, submit, approve or lock a budget, manage a cycle,
+publish guidance, run or publish a forecast, price a bid, approve a price, see the margin on one,
+accept a risk, import actuals, or publish a leadership pack. Your default approval limit is zero,
+and budget transitions require the permission as well as the seniority — so outranking the CFO
+buys you nothing here.
+
+This is segregation of duties between administering a system and transacting in it. An identity
+that can both manage users and approve unlimited spend is the first thing an auditor looks for,
+and until recently this role was exactly that.
+
+**What it does and does not achieve, stated honestly.** You hold `user:manage`, so you can change
+a role or reset a password — financial authority remains _reachable_. What has changed is that
+reaching it is no longer silent. It now takes a deliberate alteration of an account, recorded
+against your name in the audit chain, rather than an approval nobody had reason to question.
+Detectable, not prevented.
 
 ### What the system will refuse, and why
 
-**Separation of duties applies to you exactly as to everyone else.** The administrator role
-carries an unlimited approval limit and the highest seniority, and still cannot approve a budget
-it prepared or submitted. If any role were going to slip through on seniority it would be this
-one; it does not, and there is a test asserting it.
+**Separation of duties has no exemption for anyone, and you never reach it.** You are refused a
+budget approval on the permission, a gate earlier than SOD-01 — with or without any involvement in
+the budget. The CFO, now the most senior finance role, is the one that has to prove the SOD rule
+still binds at the top; there is a test asserting it does, and another asserting you are refused
+outright.
 
 **You cannot delete a budget, and neither can anyone else.** No such capability exists anywhere in
 the platform, for any role. A budget is amended, superseded or returned for revision. This is not
@@ -261,9 +283,9 @@ so both remain visible and the history stays readable.
 
 ### What you are accountable for
 
-**You can do financial damage and should not do financial work.** Holding this role does not make
-you the right person to approve a budget. Use a separate finance account if you also have a
-finance function.
+**If you also have a finance function, hold a second account for it.** The platform now refuses
+you financial actions outright, so the separation is enforced rather than advisory — but that only
+helps if the finance work is done under an identity that carries the accountability for it.
 
 **Deactivation takes effect immediately** — the platform re-reads the user on every request rather
 than trusting the token, so a deactivated account loses access at once rather than when its
@@ -304,31 +326,31 @@ The authoritative capability matrix. `Y` means the role holds the permission.
 
 | Permission                  | Viewer | Analyst | Owner | Fin Mgr | CFO | Admin |
 | --------------------------- | :----: | :-----: | :---: | :-----: | :-: | :---: |
-| `actuals:import`            |   ·    |    ·    |   ·   |    Y    |  Y  |   Y   |
+| `actuals:import`            |   ·    |    ·    |   ·   |    Y    |  Y  |   ·   |
 | `audit:read`                |   ·    |    ·    |   ·   |    Y    |  Y  |   Y   |
 | `audit:verify`              |   ·    |    ·    |   ·   |    ·    |  Y  |   Y   |
-| `budget:approve`            |   ·    |    ·    |   ·   |    Y    |  Y  |   Y   |
-| `budget:lock`               |   ·    |    ·    |   ·   |    ·    |  Y  |   Y   |
+| `budget:approve`            |   ·    |    ·    |   ·   |    Y    |  Y  |   ·   |
+| `budget:lock`               |   ·    |    ·    |   ·   |    ·    |  Y  |   ·   |
 | `budget:read`               |   Y    |    Y    |   Y   |    Y    |  Y  |   Y   |
-| `budget:submit`             |   ·    |    ·    |   Y   |    Y    |  Y  |   Y   |
-| `budget:write`              |   ·    |    Y    |   Y   |    Y    |  Y  |   Y   |
-| `cycle:manage`              |   ·    |    ·    |   ·   |    Y    |  Y  |   Y   |
+| `budget:submit`             |   ·    |    ·    |   Y   |    Y    |  Y  |   ·   |
+| `budget:write`              |   ·    |    Y    |   Y   |    Y    |  Y  |   ·   |
+| `cycle:manage`              |   ·    |    ·    |   ·   |    Y    |  Y  |   ·   |
 | `cycle:read`                |   Y    |    Y    |   Y   |    Y    |  Y  |   Y   |
-| `forecast:publish`          |   ·    |    ·    |   Y   |    Y    |  Y  |   Y   |
+| `forecast:publish`          |   ·    |    ·    |   Y   |    Y    |  Y  |   ·   |
 | `forecast:read`             |   Y    |    Y    |   Y   |    Y    |  Y  |   Y   |
-| `forecast:run`              |   ·    |    Y    |   Y   |    Y    |  Y  |   Y   |
-| `guidance:publish`          |   ·    |    ·    |   ·   |    Y    |  Y  |   Y   |
-| `pricing:approve`           |   ·    |    ·    |   ·   |    Y    |  Y  |   Y   |
+| `forecast:run`              |   ·    |    Y    |   Y   |    Y    |  Y  |   ·   |
+| `guidance:publish`          |   ·    |    ·    |   ·   |    Y    |  Y  |   ·   |
+| `pricing:approve`           |   ·    |    ·    |   ·   |    Y    |  Y  |   ·   |
 | `pricing:read`              |   Y    |    Y    |   Y   |    Y    |  Y  |   Y   |
-| `pricing:view_margin`       |   ·    |    ·    |   Y   |    Y    |  Y  |   Y   |
-| `pricing:write`             |   ·    |    Y    |   Y   |    Y    |  Y  |   Y   |
-| `report:export`             |   ·    |    Y    |   Y   |    Y    |  Y  |   Y   |
-| `report:publish_leadership` |   ·    |    ·    |   ·   |    Y    |  Y  |   Y   |
+| `pricing:view_margin`       |   ·    |    ·    |   Y   |    Y    |  Y  |   ·   |
+| `pricing:write`             |   ·    |    Y    |   Y   |    Y    |  Y  |   ·   |
+| `report:export`             |   ·    |    Y    |   Y   |    Y    |  Y  |   ·   |
+| `report:publish_leadership` |   ·    |    ·    |   ·   |    Y    |  Y  |   ·   |
 | `report:read`               |   Y    |    Y    |   Y   |    Y    |  Y  |   Y   |
-| `risk:accept`               |   ·    |    ·    |   ·   |    Y    |  Y  |   Y   |
+| `risk:accept`               |   ·    |    ·    |   ·   |    Y    |  Y  |   ·   |
 | `risk:read`                 |   Y    |    Y    |   Y   |    Y    |  Y  |   Y   |
-| `risk:simulate`             |   ·    |    Y    |   Y   |    Y    |  Y  |   Y   |
-| `risk:write`                |   ·    |    Y    |   Y   |    Y    |  Y  |   Y   |
+| `risk:simulate`             |   ·    |    Y    |   Y   |    Y    |  Y  |   ·   |
+| `risk:write`                |   ·    |    Y    |   Y   |    Y    |  Y  |   ·   |
 | `settings:manage`           |   ·    |    ·    |   ·   |    ·    |  ·  |   Y   |
 | `user:manage`               |   ·    |    ·    |   ·   |    ·    |  ·  |   Y   |
 | `user:read`                 |   ·    |    ·    |   ·   |    Y    |  Y  |   Y   |

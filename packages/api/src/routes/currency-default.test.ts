@@ -38,7 +38,16 @@ vi.mock('../services/audit.service.js', () => ({
 const { buildApp } = await import('../app.js');
 const { config } = await import('../config.js');
 
-const ADMIN = makeUser({ id: 'user-admin', role: 'ADMIN' });
+/*
+  A CFO, not an administrator.
+
+  This suite used an ACTOR because it was the role that held everything, which
+  stopped being true when the administrator lost its financial authority. The
+  actor here is incidental to what is under test - the default currency - but
+  picking the role that legitimately holds `cycle:manage` and `pricing:write`
+  is the difference between a fixture and a fiction.
+*/
+const ACTOR = makeUser({ id: 'user-cfo', role: 'CFO' });
 
 let app: FastifyInstance;
 
@@ -47,7 +56,7 @@ beforeEach(async () => {
   app = await buildApp();
   await app.ready();
 
-  db.user.findUnique.mockResolvedValue(ADMIN);
+  db.user.findUnique.mockResolvedValue(ACTOR);
   db.budgetCycle.create.mockImplementation(async ({ data }: { data: object }) => ({
     id: 'cycle-1',
     ...data,
@@ -64,7 +73,7 @@ function sentToPrisma(model: { create: { mock: { calls: unknown[][] } } }, field
 }
 
 function post(url: string, payload: Record<string, unknown>) {
-  return app.inject({ method: 'POST', url, headers: authHeader(app, ADMIN), payload });
+  return app.inject({ method: 'POST', url, headers: authHeader(app, ACTOR), payload });
 }
 
 /**

@@ -14,10 +14,12 @@ import {
   Decimal,
   InvalidTransitionError,
   TRANSITION_MIN_ROLE,
+  TRANSITION_PERMISSION,
   add,
   assertSeparationOfDuties,
   assertWithinDelegatedAuthority,
   atLeast,
+  can,
   buildPeriodAxis,
   periodKey as makePeriodKey,
   type PeriodType,
@@ -252,6 +254,19 @@ export async function transitionBudget(
       `Moving a budget to ${to} requires the ${minimumRole} role or higher.`,
       { details: { required: minimumRole, actual: actor.role } },
     );
+  }
+
+  /*
+    Seniority is not sufficient on its own. The administrator outranks every
+    finance role, so a rank test alone hands it every transition in the table -
+    which is exactly the authority it is not supposed to hold. The permission is
+    the second gate, and the one that actually expresses the policy.
+  */
+  const permission = TRANSITION_PERMISSION[to];
+  if (!can(actor.role, permission)) {
+    throw new AppError('FORBIDDEN', `Moving a budget to ${to} requires ${permission}.`, {
+      details: { required: permission, actual: actor.role },
+    });
   }
 
   const isApproval = to === 'APPROVED' || to === 'LOCKED';
@@ -576,5 +591,10 @@ export async function replaceBudgetLines(
 
 /** Transitions the actor could legally perform right now - drives the UI. */
 export function availableTransitions(status: BudgetStatus, role: Role): BudgetStatus[] {
-  return BUDGET_TRANSITIONS[status].filter((target) => atLeast(role, TRANSITION_MIN_ROLE[target]));
+  // Both gates, so the buttons a screen offers match what the API will accept.
+  // Offering one it then refuses is the defect this function exists to prevent.
+  return BUDGET_TRANSITIONS[status].filter(
+    (target) =>
+      atLeast(role, TRANSITION_MIN_ROLE[target]) && can(role, TRANSITION_PERMISSION[target]),
+  );
 }

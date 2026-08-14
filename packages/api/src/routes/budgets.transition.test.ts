@@ -165,11 +165,39 @@ describe('POST /budgets/:id/transition - separation of duties', () => {
     expect(db.$transaction).not.toHaveBeenCalled();
   });
 
-  it('has no ADMIN bypass', async () => {
-    // CLAUDE.md states this control must not gain a role exemption, including
-    // for ADMIN. ADMIN also has an unlimited approval limit, so if any role
-    // could slip through on seniority it would be this one.
-    const response = await transition(makeUser({ id: PREPARER.id, role: 'ADMIN' }), 'APPROVED');
+  it('refuses the administrator outright, whether or not it prepared the budget', async () => {
+    /*
+      The descendant of a test that asserted ADMIN could not *bypass* separation
+      of duties. It no longer needs to: the administrator holds no financial
+      authority at all, so it is stopped a gate earlier.
+
+      Both halves matter. ADMIN outranks every finance role, so a seniority test
+      alone would hand it this transition - the permission is what refuses it.
+      And the refusal does not depend on the administrator being a party to the
+      budget, which is the difference between "cannot approve their own work"
+      and "cannot approve".
+    */
+    const uninvolved = await transition(makeUser({ id: 'user-admin', role: 'ADMIN' }), 'APPROVED');
+
+    expect(uninvolved.statusCode).toBe(403);
+    expect(uninvolved.json().error.code).toBe('FORBIDDEN');
+    expect(uninvolved.json().error.details).toMatchObject({
+      required: 'budget:approve',
+      actual: 'ADMIN',
+    });
+    expect(db.$transaction).not.toHaveBeenCalled();
+
+    const preparer = await transition(makeUser({ id: PREPARER.id, role: 'ADMIN' }), 'APPROVED');
+
+    expect(preparer.statusCode).toBe(403);
+    expect(db.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('still refuses the most senior finance role its own work', async () => {
+    // The assertion the ADMIN case used to carry: no seniority buys an
+    // exemption from SOD-01. The CFO is now the top of the finance ladder, so
+    // it is the one that has to prove it.
+    const response = await transition(makeUser({ id: PREPARER.id, role: 'CFO' }), 'APPROVED');
 
     expect(response.statusCode).toBe(403);
     expect(response.json().error.code).toBe('SEPARATION_OF_DUTIES');

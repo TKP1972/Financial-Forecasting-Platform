@@ -36,7 +36,19 @@ describe('permission inheritance', () => {
     }
   });
 
-  it('each role is a STRICT superset of the role below it', () => {
+  /*
+    The finance ladder is a strict chain. ADMIN is deliberately not on it.
+
+    Until this change every role was a superset of the one below, ADMIN
+    included, which handed the administrator every financial approval in the
+    product. That is the segregation-of-duties failure an auditor looks for
+    first, and the user manual had claimed the opposite since it was written.
+    ADMIN is now a separate branch: observe, audit, administer, transact
+    nothing.
+  */
+  const FINANCE_LADDER: Role[] = ['VIEWER', 'ANALYST', 'BUDGET_OWNER', 'FINANCE_MANAGER', 'CFO'];
+
+  it('each finance role is a STRICT superset of the role below it', () => {
     // Hand-counted sizes from the role definitions:
     //   VIEWER          6   (budget/cycle/forecast/pricing/risk/report read)
     //   ANALYST        12   (+6: budget:write, forecast:run, pricing:write,
@@ -46,27 +58,21 @@ describe('permission inheritance', () => {
     //                        pricing:approve, risk:accept, actuals:import,
     //                        report:publish_leadership, audit:read, user:read)
     //   CFO            26   (+2: budget:lock, audit:verify)
-    //   ADMIN          28   (+2: user:manage, settings:manage)
-    //
-    // ADMIN equals the total permission count because ADMIN is the top of the
-    // ladder and every permission is reachable. If that stops being true, one
-    // of the two has been changed without the other.
-    const expectedSizes: Record<Role, number> = {
+    const expectedSizes: Record<string, number> = {
       VIEWER: 6,
       ANALYST: 12,
       BUDGET_OWNER: 15,
       FINANCE_MANAGER: 24,
       CFO: 26,
-      ADMIN: 28,
     };
 
-    for (const role of LADDER) {
+    for (const role of FINANCE_LADDER) {
       expect(ROLE_PERMISSIONS[role].size, role).toBe(expectedSizes[role]);
     }
 
-    for (let i = 1; i < LADDER.length; i += 1) {
-      const lower = LADDER[i - 1] as Role;
-      const higher = LADDER[i] as Role;
+    for (let i = 1; i < FINANCE_LADDER.length; i += 1) {
+      const lower = FINANCE_LADDER[i - 1] as Role;
+      const higher = FINANCE_LADDER[i] as Role;
       // Superset: every lower permission is held by the higher role.
       for (const permission of ROLE_PERMISSIONS[lower]) {
         expect(can(higher, permission), `${higher} should inherit ${permission}`).toBe(true);
@@ -79,12 +85,60 @@ describe('permission inheritance', () => {
     }
   });
 
-  it('ADMIN holds every declared permission', () => {
-    // 6 budget + 3 cycle/guidance + 3 forecast + 4 pricing + 4 risk
-    //   + 5 actuals/report + 5 governance = 30
+  it('ADMIN observes, audits and administers - and transacts nothing', () => {
+    // 11 hand-listed: 6 reads + audit:read + audit:verify + user:read
+    //   + user:manage + settings:manage.
+    expect(ROLE_PERMISSIONS.ADMIN.size).toBe(11);
+
+    for (const permission of [
+      'budget:read',
+      'cycle:read',
+      'forecast:read',
+      'pricing:read',
+      'risk:read',
+      'report:read',
+      'audit:read',
+      'audit:verify',
+      'user:read',
+      'user:manage',
+      'settings:manage',
+    ] as const) {
+      expect(can('ADMIN', permission), permission).toBe(true);
+    }
+
+    // Every financial action, refused by name. Listed rather than derived,
+    // because deriving it from the matrix would pass whatever the matrix said.
+    for (const permission of [
+      'budget:write',
+      'budget:submit',
+      'budget:approve',
+      'budget:lock',
+      'cycle:manage',
+      'guidance:publish',
+      'forecast:run',
+      'forecast:publish',
+      'pricing:write',
+      'pricing:approve',
+      'pricing:view_margin',
+      'risk:write',
+      'risk:simulate',
+      'risk:accept',
+      'actuals:import',
+      'report:export',
+      'report:publish_leadership',
+    ] as const) {
+      expect(can('ADMIN', permission), permission).toBe(false);
+    }
+  });
+
+  it('every declared permission is held by some role', () => {
+    // The old form of this asserted ADMIN held all 28, which is exactly the
+    // property that has been removed. The thing actually worth guarding is that
+    // no permission is orphaned - declared, and granted to nobody.
     expect(PERMISSIONS).toHaveLength(28);
     for (const permission of PERMISSIONS) {
-      expect(can('ADMIN', permission), permission).toBe(true);
+      const holders = ROLES.filter((role) => can(role, permission));
+      expect(holders.length, `${permission} is granted to no role`).toBeGreaterThan(0);
     }
   });
 
@@ -106,12 +160,14 @@ describe('specific permission boundaries', () => {
     expect(can('BUDGET_OWNER', 'budget:approve')).toBe(false);
     expect(can('FINANCE_MANAGER', 'budget:approve')).toBe(true);
     expect(can('CFO', 'budget:approve')).toBe(true);
-    expect(can('ADMIN', 'budget:approve')).toBe(true);
+    // The administrator outranks the CFO and still cannot approve. That is the
+    // point of the role, not an oversight.
+    expect(can('ADMIN', 'budget:approve')).toBe(false);
   });
 
-  it("only CFO and ADMIN hold 'budget:lock'", () => {
+  it("only the CFO holds 'budget:lock'", () => {
     const holders = LADDER.filter((r) => can(r, 'budget:lock'));
-    expect(holders).toEqual(['CFO', 'ADMIN']);
+    expect(holders).toEqual(['CFO']);
   });
 
   it("only ADMIN holds 'user:manage'", () => {
@@ -286,7 +342,10 @@ describe('delegated authority', () => {
     expect(isWithinDelegatedAuthority('999999999999', null)).toBe(true);
     expect(isWithinDelegatedAuthority(Number.MAX_SAFE_INTEGER, null)).toBe(true);
     expect(DEFAULT_APPROVAL_LIMITS.CFO).toBeNull();
-    expect(DEFAULT_APPROVAL_LIMITS.ADMIN).toBeNull();
+    // The administrator is not an approver, so its limit is zero rather than
+    // unlimited. null would say "no ceiling", which is the opposite.
+    expect(DEFAULT_APPROVAL_LIMITS.ADMIN).toBe('0');
+    expect(isWithinDelegatedAuthority('1', DEFAULT_APPROVAL_LIMITS.ADMIN)).toBe(false);
   });
 
   it('compares the ABSOLUTE value of the amount', () => {

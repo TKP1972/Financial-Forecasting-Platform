@@ -55,7 +55,14 @@ inline.
 contingency figures must be reproducible for audit.
 
 **Separation of duties has no bypass.** `assertSeparationOfDuties` must not gain a role
-exemption, including for ADMIN.
+exemption. The CFO is the case that proves it binds at the top.
+
+**ADMIN is not a finance role, and is the one role that is not a superset of the one below it**
+(ADM-01). It observes, audits and administers; it holds no financial permission and its default
+approval limit is `'0'`. Budget transitions require `TRANSITION_PERMISSION` **as well as**
+`TRANSITION_MIN_ROLE` — without the permission gate the change would be cosmetic, because ADMIN's
+rank of 60 satisfies every minimum in the seniority table. Do not "restore consistency" by making
+the ladder monotonic again.
 
 **The audit chain's limits are documented, not assumed.** `docs/audit-threat-model.md` states
 what the chain does and does not protect against — chiefly that `AUDIT_HASH_SALT` lives on the
@@ -214,6 +221,14 @@ once will bite again; a check that fails the build will not.
   none of them assert position. `.data-table th.num` now wins, and `check:tables` guards the half
   CSS cannot: a heading and its column disagreeing about whether they are numeric. **When a
   utility class must override a component rule, check it actually wins.**
+- **A control the docs assert and the matrix contradicts can pass a machine check.** The user
+  manual said the administrator was "deliberately not a finance role" from the day it was written,
+  while `ROLE_PERMISSIONS.ADMIN` was `[...CFO, 'user:manage', 'settings:manage']` — every financial
+  approval, unlimited limit, rank above the CFO. `user-manual.test.ts` compares the manual's
+  permission _matrix_ against the code and passed throughout, because the false claim was in the
+  _prose_. It was the owner reading the About screen who asked why an administrator inherits the
+  CFO's powers. When a document makes a claim about a control, the claim needs a test, not only the
+  table beside it.
 - **Two sign conventions on one product is a defect, not a documentation problem.** A variance
   report signs `budget − actual` (positive is underspend); a price/volume decomposition signs
   `actual − budget` (positive is added cost). Both are standard and a bare figure cannot say which

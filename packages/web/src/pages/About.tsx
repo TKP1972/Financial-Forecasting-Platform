@@ -19,14 +19,7 @@
  *     system will find them anyway, and finding them written down by the
  *     vendor is a different conversation from finding them uncovered.
  */
-import {
-  DEFAULT_APPROVAL_LIMITS,
-  ROLE_LABELS,
-  TRANSITION_MIN_ROLE,
-  atLeast,
-  permissionsFor,
-  type Role,
-} from '@ffp/shared';
+import { DEFAULT_APPROVAL_LIMITS, ROLE_LABELS, can, permissionsFor, type Role } from '@ffp/shared';
 import { Link } from 'react-router-dom';
 import { Card, InlineNote, PageHeader } from '@/components/ui';
 import { integer, money0 } from '@/lib/format';
@@ -85,20 +78,21 @@ const ROLE_NOTES: Record<Role, string> = {
   BUDGET_OWNER: 'Owns a unit’s numbers, submits them for approval, and can see margin.',
   FINANCE_MANAGER: 'Runs the cycle, imports actuals, and is the first role that can approve.',
   CFO: 'Approves without limit, locks an approved budget, and verifies the audit chain.',
-  ADMIN: 'Everything the CFO can do, plus users and settings. Still cannot approve own work.',
+  ADMIN: 'Runs the platform: users, settings, reference data, the audit chain. Transacts nothing.',
 };
 
 /**
- * Whether a role can approve at all, taken from the transition the product
- * enforces rather than from the limits table.
+ * Whether a role can approve at all, taken from the permission the product
+ * requires rather than from the limits table.
  *
  * They are not the same question, and conflating them would misrepresent the
  * system: `DEFAULT_APPROVAL_LIMITS` names a figure for every role, but a limit
- * is only ever consulted at an approval, and an approval needs the seniority in
- * `TRANSITION_MIN_ROLE`. A role that cannot reach the transition has no
- * approval authority whatever its limit says.
+ * is only ever consulted at an approval, and an approval requires
+ * `budget:approve`. The System Administrator is the case that makes the
+ * distinction visible - it outranks the CFO and holds no approval authority
+ * whatever, which is the point of the role.
  */
-const canApprove = (role: Role) => atLeast(role, TRANSITION_MIN_ROLE.APPROVED);
+const canApprove = (role: Role) => can(role, 'budget:approve');
 
 const ROLE_ORDER: Role[] = ['VIEWER', 'ANALYST', 'BUDGET_OWNER', 'FINANCE_MANAGER', 'CFO', 'ADMIN'];
 
@@ -238,8 +232,10 @@ export default function About() {
               Nobody approves their own work
             </dt>
             <dd className="mt-1 leading-relaxed text-slate-600 dark:text-slate-400">
-              The person who prepared a budget or priced a bid cannot sign it off. There is no
-              exemption, and the administrator does not have one either.
+              The person who prepared a budget or priced a bid cannot sign it off, and no seniority
+              buys an exemption. The System Administrator is not an exception to the rule but a step
+              further from it: it holds no financial authority at all, so administering the platform
+              and transacting in it are different jobs held by different people.
             </dd>
           </div>
           <div>
