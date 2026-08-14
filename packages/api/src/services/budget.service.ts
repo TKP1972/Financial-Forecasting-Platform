@@ -8,9 +8,9 @@
  * snapshot and the audit entry commit in a single transaction.
  */
 import {
+  effectiveApprovalLimit,
   AppError,
   BUDGET_TRANSITIONS,
-  DEFAULT_APPROVAL_LIMITS,
   Decimal,
   InvalidTransitionError,
   TRANSITION_MIN_ROLE,
@@ -280,7 +280,7 @@ export async function transitionBudget(
     });
 
     // (4) Delegated authority.
-    const limit = actor.approvalLimit ?? DEFAULT_APPROVAL_LIMITS[actor.role as Role];
+    const limit = effectiveApprovalLimit(actor);
     assertWithinDelegatedAuthority(budget.totalAmount.toString(), limit);
   }
 

@@ -257,6 +257,29 @@ export const DEFAULT_APPROVAL_LIMITS: Record<Role, string | null> = {
 };
 
 /**
+ * The limit that actually applies to a user: their override if they have one,
+ * otherwise their role's default.
+ *
+ * This exists because the expression `user.approvalLimit ?? DEFAULT[role]` was
+ * written out at four call sites, and the places that *reported* the limit did
+ * not use it - they returned the stored column. A stored `null` means "no
+ * override, fall back to the default"; a reported `null` means "unlimited".
+ * The two readings collide precisely on ADMIN, whose stored value is null and
+ * whose default is '0', so `POST /auth/login` described the administrator as
+ * having no ceiling while every approval path held them to zero. Enforcement
+ * was correct throughout; only the description was wrong, which is the harder
+ * kind of wrong to notice.
+ *
+ * Report and enforce through the same expression, so they cannot drift again.
+ */
+export function effectiveApprovalLimit(user: {
+  role: Role | string;
+  approvalLimit?: string | null;
+}): string | null {
+  return user.approvalLimit ?? DEFAULT_APPROVAL_LIMITS[user.role as Role] ?? null;
+}
+
+/**
  * Compare an amount against the actor's limit.
  * Amounts are decimal strings; comparison is string-safe via Number only after
  * an explicit finite check, because limits are policy values, not ledger money.

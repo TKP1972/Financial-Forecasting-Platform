@@ -6,6 +6,7 @@
  */
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
+  effectiveApprovalLimit,
   AppError,
   createUserSchema,
   loginSchema,
@@ -46,7 +47,7 @@ function publicUser(user: AuthenticatedUser) {
     lastName: user.lastName,
     role: user.role,
     businessUnitId: user.businessUnitId,
-    approvalLimit: user.approvalLimit,
+    approvalLimit: effectiveApprovalLimit({ role: user.role, approvalLimit: user.approvalLimit }),
     permissions: permissionsFor(user.role),
   };
 }
