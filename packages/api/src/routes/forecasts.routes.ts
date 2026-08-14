@@ -10,6 +10,7 @@ import {
   AppError,
   driverSchema,
   forecastRequestSchema,
+  queryBoolean,
   scenarioSchema,
   toMoneyString,
 } from '@ffp/shared';
@@ -196,6 +197,55 @@ export async function registerForecastRoutes(app: FastifyInstance): Promise<void
       return { data: run };
     },
   );
+
+  /**
+   * The stored driver definitions.
+   *
+   * The `drivers` table was seeded from the beginning and read by nothing: the
+   * two endpoints below take drivers in the request body, so the engine could
+   * build a driver forecast and compare scenarios while no user could reach
+   * either. This is the missing half - it hands a client the definitions to
+   * feed back in.
+   *
+   * The shape deliberately matches `driverSchema`, so a caller can take this
+   * response, adjust it, and post it to `/drivers/build` or
+   * `/scenarios/compare` without reshaping anything.
+   */
+  app.get('/drivers', { onRequest: [app.requirePermission('forecast:read')] }, async (request) => {
+    const query = z
+      .object({
+        businessUnitId: z.string().optional(),
+        includeInactive: queryBoolean.default(false),
+      })
+      .parse(request.query);
+
+    const drivers = await prisma.driver.findMany({
+      where: {
+        ...(query.includeInactive ? {} : { isActive: true }),
+        ...(query.businessUnitId ? { businessUnitId: query.businessUnitId } : {}),
+      },
+      orderBy: { code: 'asc' },
+      include: { businessUnit: { select: { id: true, code: true, name: true } } },
+    });
+
+    return {
+      data: drivers.map((driver) => ({
+        id: driver.id,
+        code: driver.code,
+        name: driver.name,
+        unit: driver.unit,
+        description: driver.description,
+        businessUnit: driver.businessUnit,
+        // Stored as JSON because a driver carries either one rate or one per
+        // period. Passed through as-is so it round-trips to the build and
+        // compare endpoints unchanged.
+        volumes: driver.volumes,
+        unitRate: driver.unitRate,
+        growthRate: driver.growthRate?.toString() ?? null,
+        isActive: driver.isActive,
+      })),
+    };
+  });
 
   /** Driver-based build-up: volumes x rates, with growth and escalation. */
   app.post(

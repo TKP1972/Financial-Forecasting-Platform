@@ -69,8 +69,15 @@ The role that does the modelling. Deliberately capable and deliberately unable t
 
 ### What you can do
 
-Build and edit budgets. Run forecasts using any of the eleven methods. Build pricing models.
-Write and simulate risks, including _Monte Carlo_ runs. Export reports.
+Build and edit budgets. Run forecasts using any of the eleven methods. **Compare scenarios** —
+vary the volume drivers underneath a plan and see the cases side by side with a
+probability-weighted outturn. Build pricing models. Write and simulate risks, including _Monte
+Carlo_ runs. Export reports.
+
+**Scenario comparison saves nothing.** It is a calculator: the same drivers and the same
+adjustments always give the same answer, so the assumptions are the record and the result can be
+re-derived at any time. If a case is going to justify a budget submission, put the assumptions in
+the submission comment — that is what gets kept.
 
 ### What the system will refuse, and why
 

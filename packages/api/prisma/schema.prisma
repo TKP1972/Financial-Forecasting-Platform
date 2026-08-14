@@ -760,6 +760,24 @@ model RollingForecast {
   @@map("rolling_forecasts")
 }
 
+/// A saved scenario. **Deliberately unwritten today.**
+///
+/// Scenario comparison is a calculator: `POST /forecasts/scenarios/compare`
+/// takes drivers and adjustments, returns the comparison, and stores nothing.
+/// That is the right default because the engine is deterministic - the same
+/// drivers and adjustments always give the same answer, so the *inputs* are the
+/// record and the result is re-derivable. Persisting every exploratory run
+/// would fill the table with noise nobody reads.
+///
+/// The table stays because there is one case that will need it: a scenario
+/// **cited** in something governed - quoted in a budget submission, or carried
+/// into a published pack. At that point the assumptions have to be captured at
+/// the moment of citation, exactly as `simulations` are persisted because they
+/// feed published contingency figures. Until a feature needs that, writing here
+/// would be storage without a reader.
+///
+/// Recorded rather than dropped so the next reader finds a decision instead of
+/// dead schema - the same treatment `budget:delete` got when it was removed.
 model Scenario {
   id            String       @id @default(cuid())
   forecastRunId String?

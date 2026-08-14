@@ -402,7 +402,103 @@ try {
   }
 
   // ------------------------------------------------------------------------
-  section('5. The headline numbers are believable');
+  section('5. Scenario planning is reachable');
+
+  // Driver-based scenario comparison was built in the engine, exposed on the
+  // API, and led to by nothing. "What if subscribers grow 2% instead of 5%" is
+  // the most common question in planning, and the product could not be asked
+  // it. These assert the path a user actually walks.
+  await signIn(page, ROLES.analyst);
+  await page.goto(`${WEB}/forecasting`);
+  page.drain();
+
+  const toScenarios = await page.click('Scenarios');
+  check('the Scenarios tab opens', toScenarios.ok, toScenarios.reason ?? '');
+
+  const driversText = await page.text();
+  check(
+    'the stored drivers are listed rather than typed in by hand',
+    /subscribers|premises|sites/i.test(driversText),
+    driversText.slice(0, 120).replace(/\n+/g, ' | '),
+  );
+
+  const compared = await page.click('Compare cases');
+  check('an analyst can compare cases', compared.ok, compared.reason ?? '');
+  await page.settle();
+
+  const rows = await page.evaluate(
+    '[...document.querySelectorAll("tbody tr")].map((r) => r.innerText)',
+  );
+  check('every case is compared against the base', rows.length >= 3, `rows=${rows.length}`);
+
+  const scenarioText = await page.text();
+  check(
+    'a probability-weighted case is reported',
+    /probability-weighted/i.test(scenarioText),
+    scenarioText.slice(0, 120).replace(/\n+/g, ' | '),
+  );
+
+  // The weighted figure must sit between the worst and best cases, or the
+  // weighting is not doing what it says. Checked from the API rather than by
+  // parsing the screen that produced it.
+  const driversForCheck = (await api(tokens.analyst, 'GET', '/forecasts/drivers')).body.data;
+  const comparison = (
+    await api(tokens.analyst, 'POST', '/forecasts/scenarios/compare', {
+      drivers: driversForCheck.map((d) => ({
+        code: d.code,
+        name: d.name,
+        unit: d.unit,
+        volumes: d.volumes,
+        unitRate: d.unitRate,
+        ...(d.growthRate ? { growthRate: d.growthRate } : {}),
+      })),
+      scenarios: [
+        { name: 'Base', type: 'BASE', probability: 0.5, adjustments: [] },
+        {
+          name: 'Down',
+          type: 'WORST',
+          probability: 0.5,
+          adjustments: driversForCheck.map((d) => ({ targetCode: d.code, factor: '0.900000' })),
+        },
+      ],
+    })
+  ).body.data;
+
+  const totals = comparison.scenarios.map((s) => Number(s.grandTotal));
+  const weighted = Number(comparison.expectedValue);
+  check(
+    'the weighted case falls between the cases it weighs',
+    weighted >= Math.min(...totals) && weighted <= Math.max(...totals),
+    `weighted=${weighted} range=${Math.min(...totals)}..${Math.max(...totals)}`,
+  );
+
+  check(
+    'a 10% volume cut moves the total by 10%',
+    Math.abs((comparison.scenarios[1]?.deltaPercent ?? 0) + 0.1) < 0.0001,
+    `deltaPercent=${comparison.scenarios[1]?.deltaPercent}`,
+  );
+
+  // A viewer holds forecast:read but not forecast:run: they may see the drivers
+  // and may not run a comparison, and the screen has to say which.
+  await signIn(page, ROLES.viewer);
+  await page.goto(`${WEB}/forecasting`);
+  await page.click('Scenarios');
+  await page.settle();
+  const viewerCompare = await control(page, 'Compare cases');
+  const viewerScenarioText = await page.text();
+  check(
+    'a viewer cannot run a comparison',
+    viewerCompare?.disabled === true,
+    `disabled=${viewerCompare?.disabled}`,
+  );
+  check(
+    'and is told which permission it needs',
+    /forecast:run/i.test(viewerScenarioText),
+    viewerScenarioText.slice(0, 140).replace(/\n+/g, ' | '),
+  );
+
+  // ------------------------------------------------------------------------
+  section('6. The headline numbers are believable');
 
   /**
    * Plausibility, which is not a property any other test asserts.

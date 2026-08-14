@@ -769,3 +769,42 @@ export interface PublishedReportRef {
   throughPeriod: number | null;
   publishedAt: string;
 }
+
+// --------------------------------------------------------------------------
+// Driver-based scenario planning
+// --------------------------------------------------------------------------
+
+/** A stored volume driver, shaped so it can be posted straight back. */
+export interface DriverDefinition {
+  id: string;
+  code: string;
+  name: string;
+  unit: string;
+  description: string | null;
+  businessUnit: BusinessUnitRef | null;
+  /** Volume per period, as decimal strings. */
+  volumes: string[];
+  /** One rate, or one per period. */
+  unitRate: string | string[];
+  growthRate: string | null;
+  isActive: boolean;
+}
+
+export interface ScenarioResult {
+  name: string;
+  type: string;
+  periodTotals: string[];
+  grandTotal: string;
+  deltaFromBase: string;
+  deltaPercent: number | null;
+  probability: number | null;
+}
+
+export interface ScenarioComparison {
+  base: { periodTotals: string[]; grandTotal: string };
+  scenarios: ScenarioResult[];
+  /** Probability-weighted total; null unless every case carries a likelihood. */
+  expectedValue: string | null;
+  /** Sum of supplied probabilities. Surfaced so a gap is visible, not hidden. */
+  probabilityCoverage: number;
+}

@@ -82,7 +82,8 @@ function PackSummary({ pack }: { pack: LeadershipPack }) {
               {pack.byBusinessUnit.map((row) => (
                 <tr key={row.code}>
                   <td className="font-medium text-slate-800 dark:text-slate-100">
-                    {row.name} <span className="text-slate-400">({row.code})</span>
+                    {row.name}{' '}
+                    <span className="text-slate-500 dark:text-slate-400">({row.code})</span>
                   </td>
                   <td className="num">{money0(row.budget, currency)}</td>
                   <td className="num">{money0(row.actual, currency)}</td>
