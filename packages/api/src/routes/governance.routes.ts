@@ -7,8 +7,8 @@ import {
   DEFAULT_APPROVAL_LIMITS,
   ROLES,
   auditQuerySchema,
+  effectiveApprovalLimit,
   permissionsFor,
-  type Role,
 } from '@ffp/shared';
 import { z } from 'zod';
 import { prisma } from '../db.js';
@@ -158,7 +158,10 @@ export async function registerGovernanceRoutes(app: FastifyInstance): Promise<vo
         role: user.role,
         isActive: user.isActive,
         businessUnit: user.businessUnit,
-        approvalLimit: user.approvalLimit?.toString() ?? DEFAULT_APPROVAL_LIMITS[user.role as Role],
+        approvalLimit: effectiveApprovalLimit({
+          role: user.role,
+          approvalLimit: user.approvalLimit?.toString(),
+        }),
         lastLoginAt: user.lastLoginAt,
         isLocked: user.lockedUntil !== null && user.lockedUntil > new Date(),
       })),

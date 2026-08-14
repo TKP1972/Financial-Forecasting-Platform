@@ -12,7 +12,7 @@
  * is pure and lives here beside the RBAC matrix it depends on.
  */
 import type { Role } from './domain.js';
-import { DEFAULT_APPROVAL_LIMITS, can, isWithinDelegatedAuthority } from './rbac.js';
+import { can, isWithinDelegatedAuthority, effectiveApprovalLimit } from './rbac.js';
 
 export const NOTIFICATION_TYPES = [
   /** A budget has been submitted and needs approval. */
@@ -163,7 +163,7 @@ export function resolveApprovalRecipients(
       continue;
     }
 
-    const limit = candidate.approvalLimit ?? DEFAULT_APPROVAL_LIMITS[candidate.role];
+    const limit = effectiveApprovalLimit(candidate);
     if (!isWithinDelegatedAuthority(context.amount, limit)) {
       excluded.push({
         id: candidate.id,

@@ -320,15 +320,15 @@ report and a leadership pack — and budget and actuals join on the same period 
 ## Testing
 
 ```bash
-npm test                  # 1306 unit tests
+npm test                  # 1311 unit tests
 npm run test:coverage     # gated at 90% lines / 85% branches on the engine
 npm run verify            # format + lint + typecheck + test
 pwsh ./scripts/smoke-test.ps1                        # 80 end-to-end API assertions
 pwsh ./scripts/verify-audit-tamper-detection.ps1     # 8 tamper-detection assertions
 ```
 
-Current: **1306 unit tests**, 97.57% statement and 93.88% branch coverage across the engine
-and shared packages, plus 278 end-to-end assertions across seven suites against a running stack.
+Current: **1311 unit tests**, 97.57% statement and 93.88% branch coverage across the engine
+and shared packages, plus 279 end-to-end assertions across seven suites against a running stack.
 
 The unit tests assert independently hand-computed expected values rather than re-running the
 implementation to produce them — a tautological test on financial math is worth nothing.

@@ -23,10 +23,9 @@
  */
 import {
   AppError,
-  DEFAULT_APPROVAL_LIMITS,
   assertSeparationOfDuties,
   assertWithinDelegatedAuthority,
-  type Role,
+  effectiveApprovalLimit,
 } from '@ffp/shared';
 import { prisma } from '../db.js';
 import { appendAuditEntry } from './audit.service.js';
@@ -89,7 +88,7 @@ export async function approvePricingModel(
 
   // Against total price, not margin: the exposure being authorised is the
   // amount committed to the client.
-  const limit = actor.approvalLimit ?? DEFAULT_APPROVAL_LIMITS[actor.role as Role];
+  const limit = effectiveApprovalLimit(actor);
   assertWithinDelegatedAuthority(model.totalPrice.toString(), limit);
 
   const now = new Date();

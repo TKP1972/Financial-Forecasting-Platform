@@ -8,7 +8,14 @@
 import fp from 'fastify-plugin';
 import fastifyJwt from '@fastify/jwt';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { AppError, ROLE_RANK, can, type Permission, type Role } from '@ffp/shared';
+import {
+  AppError,
+  ROLE_RANK,
+  can,
+  effectiveApprovalLimit,
+  type Permission,
+  type Role,
+} from '@ffp/shared';
 import { config } from '../config.js';
 import { prisma } from '../db.js';
 import type { AccessTokenPayload, AuthenticatedUser } from '../services/auth.service.js';
@@ -72,7 +79,10 @@ export const authPlugin = fp(
         lastName: user.lastName,
         role: user.role as Role,
         businessUnitId: user.businessUnitId,
-        approvalLimit: user.approvalLimit?.toString() ?? null,
+        approvalLimit: effectiveApprovalLimit({
+          role: user.role,
+          approvalLimit: user.approvalLimit?.toString(),
+        }),
       };
     });
 

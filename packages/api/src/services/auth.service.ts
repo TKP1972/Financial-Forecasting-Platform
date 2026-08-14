@@ -11,7 +11,7 @@
  */
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { hash as argonHash, verify as argonVerify } from '@node-rs/argon2';
-import { AppError, type Role } from '@ffp/shared';
+import { AppError, effectiveApprovalLimit, type Role } from '@ffp/shared';
 import { config } from '../config.js';
 import { prisma } from '../db.js';
 
@@ -137,7 +137,10 @@ export async function authenticate(email: string, password: string): Promise<Aut
     lastName: user.lastName,
     role: user.role as Role,
     businessUnitId: user.businessUnitId,
-    approvalLimit: user.approvalLimit?.toString() ?? null,
+    approvalLimit: effectiveApprovalLimit({
+      role: user.role,
+      approvalLimit: user.approvalLimit?.toString(),
+    }),
   };
 }
 
@@ -218,7 +221,10 @@ export async function rotateRefreshToken(
       lastName: stored.user.lastName,
       role: stored.user.role as Role,
       businessUnitId: stored.user.businessUnitId,
-      approvalLimit: stored.user.approvalLimit?.toString() ?? null,
+      approvalLimit: effectiveApprovalLimit({
+        role: stored.user.role,
+        approvalLimit: stored.user.approvalLimit?.toString(),
+      }),
     },
     session,
   };

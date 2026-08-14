@@ -18,6 +18,7 @@ import {
   can,
   canAll,
   canAny,
+  effectiveApprovalLimit,
   isWithinDelegatedAuthority,
   permissionsFor,
   requiredApproverRole,
@@ -334,6 +335,49 @@ describe('separation of duties', () => {
     expect(() =>
       assertSeparationOfDuties({ actorId: 'approver', preparedById: 'preparer' }),
     ).not.toThrow();
+  });
+});
+
+describe('effectiveApprovalLimit', () => {
+  // The bug this function exists to close: a stored null means "no override",
+  // but a *reported* null means "unlimited". They collide on ADMIN, whose
+  // stored value is null and whose default is '0'. Reporting the stored value
+  // described the administrator as having no ceiling while every approval path
+  // held them to zero.
+  it('reports the administrator as zero, not unlimited', () => {
+    expect(effectiveApprovalLimit({ role: 'ADMIN', approvalLimit: null })).toBe('0');
+    expect(effectiveApprovalLimit({ role: 'ADMIN' })).toBe('0');
+  });
+
+  it('still reports the CFO as unlimited, which is what null legitimately means', () => {
+    expect(effectiveApprovalLimit({ role: 'CFO', approvalLimit: null })).toBeNull();
+  });
+
+  it('an explicit override wins over the role default', () => {
+    // FINANCE_MANAGER defaults to 2,000,000; this user is capped lower.
+    expect(effectiveApprovalLimit({ role: 'FINANCE_MANAGER', approvalLimit: '500000' })).toBe(
+      '500000',
+    );
+    // And a zero override is honoured rather than treated as absent, which
+    // `||` would have got wrong.
+    expect(effectiveApprovalLimit({ role: 'CFO', approvalLimit: '0' })).toBe('0');
+  });
+
+  it('falls back to the role default for every role', () => {
+    // Hand-checked against DEFAULT_APPROVAL_LIMITS, not derived from it.
+    expect(effectiveApprovalLimit({ role: 'VIEWER' })).toBe('0');
+    expect(effectiveApprovalLimit({ role: 'ANALYST' })).toBe('0');
+    expect(effectiveApprovalLimit({ role: 'BUDGET_OWNER' })).toBe('250000');
+    expect(effectiveApprovalLimit({ role: 'FINANCE_MANAGER' })).toBe('2000000');
+  });
+
+  it('an administrator can approve nothing at all', () => {
+    // 0 <= 0 is within authority, so the limit alone does not bar a zero-value
+    // approval - the absence of any approval permission does. Asserted so the
+    // limit is not mistaken for the whole control.
+    const limit = effectiveApprovalLimit({ role: 'ADMIN' });
+    expect(isWithinDelegatedAuthority('0.0001', limit)).toBe(false);
+    expect(isWithinDelegatedAuthority('1', limit)).toBe(false);
   });
 });
 

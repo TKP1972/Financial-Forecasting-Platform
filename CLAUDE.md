@@ -219,6 +219,19 @@ once will bite again; a check that fails the build will not.
   a client obeying the advertised value got a 400 that read as its own mistake. Both now call
   `buildPeriodAxis`. Whenever something is announced in one place and enforced in another, make
   one call the other rather than testing both harder.
+
+  It happened a second time, on the approval limit, and the second instance is subtler because
+  the two readings of the same `null` disagreed. A **stored** `approvalLimit` of `null` means
+  "no override, use the role default"; a **reported** `null` means "unlimited"
+  (`DEFAULT_APPROVAL_LIMITS` says so). They collide exactly on ADMIN, whose stored value is null
+  and whose default is `'0'` — so `POST /auth/login` and the token refresh described the
+  administrator as having _no ceiling_ while every approval path held them to zero, which is the
+  opposite of what ADM-01 exists to say. Enforcement was right the whole time; only the
+  description was wrong, and no test caught it because each side was individually correct.
+  `effectiveApprovalLimit()` is now the single expression, used by both approval services, the
+  governance user list, the notification candidate filter and all three auth responses. **When a
+  nullable column and a nullable policy value share a name, they do not share a meaning.**
+
 - **Rebuild the libs after changing a `shared` or `engine` export.** `api` typechecks against
   `packages/shared/dist/*.d.ts`, not the sources, so a field added to a shared interface is
   invisible to it until `npm run build:libs` runs. The symptom is a lie: `tsc` reports the
@@ -278,7 +291,7 @@ something other than what was written.
 
 ## Testing
 
-`npm test` — 1306 unit tests, gated at 90% lines / 85% branches on the engine.
+`npm test` — 1311 unit tests, gated at 90% lines / 85% branches on the engine.
 
 Write tests that assert **independently hand-computed** values, with the derivation in a
 comment. Do not compute an expectation by calling the code under test; a tautological test on
