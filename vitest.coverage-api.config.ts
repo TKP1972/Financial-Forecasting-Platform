@@ -53,21 +53,20 @@ export default defineConfig({
        * never lower them to make a build pass.
        */
       thresholds: {
-        // Re-based when route coverage went from 86 of 109 to 109 of 109.
+        // Raised when route coverage reached 109 of 109.
         //
-        // Lines, statements and functions all rose sharply because whole files
-        // entered scope for the first time. Branches fell 79.6 -> 78.4 for the
-        // same reason and in the opposite direction: exercising a route's happy
-        // path pulls every unexercised branch in its file into the denominator,
-        // so the ratio drops while absolute coverage only rises.
-        //
-        // Set just under the new figure, as the ratchet has always been. Three
-        // of the four moved up materially in the change that moved this one
-        // down by one point; lowering it further to pass a build is not the
-        // same act and is still forbidden.
+        // Branches dipped to 78.4 on the way: exercising a route's happy path
+        // pulls every unexercised branch in its file into the denominator, so
+        // the ratio falls while absolute coverage only rises. Rather than
+        // re-base the threshold downward, the dip was closed by testing the
+        // two places that most deserved it - the Prisma error mapping every
+        // route depends on (65.5 -> 88.4) and the readiness probe's
+        // database-down branch (60 -> 83.3). Both were worth a test on their
+        // own merits, which is the test of whether covering a branch is real
+        // work or box-ticking.
         lines: 33,
         functions: 45,
-        branches: 78,
+        branches: 80,
         statements: 33,
       },
     },
