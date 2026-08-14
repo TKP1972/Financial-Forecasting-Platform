@@ -240,9 +240,31 @@ once will bite again; a check that fails the build will not.
   same arithmetic and opposite news, and totals across mixed types must net favourable against
   adverse rather than summing raw signs.
 
+## Traps in how the work gets done
+
+These cost more time than any product bug, because nothing failed — the tooling quietly did
+something other than what was written.
+
+- **Never author source through a shell heredoc.** The Bash tool halves backslashes on the way
+  through, quoted heredoc or not. A regex written as `/\r?\n/` lands as a literal carriage return
+  and newline _inside the regex literal_; `\b` becomes a backspace, `\u001b` an escape character.
+  If you are lucky it is a syntax error. If you are not, the regex matches something else and every
+  test still passes. It is invisible in an editor and in a diff, which is why it recurred **five
+  times in this repository** before anyone wrote it down. Use the editor tooling, or write a
+  script file with the editor tooling and run that. `check:invariants` now fails the build on
+  stray control characters, and was tested against planted damage rather than assumed to work —
+  its first draft excused carriage returns outright and caught nothing.
+- **Read what the failing thing said before forming a theory about why it failed.**
+  `smoke-test-rolling.ps1` printed its own diagnosis _and_ the remedy at the moment it failed, and
+  CLAUDE.md documented the behaviour, and it was still misdiagnosed twice as a startup race —
+  because `run-e2e.mjs` reported `FAIL suite (exit 1)` with the reason stripped, and the tail is
+  what gets read. The runner now quotes the failing assertions and any explanatory line in its
+  summary. The general rule: a hypothesis formed before reading the output is a guess, and a guess
+  costs a full diagnostic cycle whether or not it is right.
+
 ## Testing
 
-`npm test` — 1005 unit tests, gated at 90% lines / 85% branches on the engine.
+`npm test` — 1306 unit tests, gated at 90% lines / 85% branches on the engine.
 
 Write tests that assert **independently hand-computed** values, with the derivation in a
 comment. Do not compute an expectation by calling the code under test; a tautological test on
@@ -261,10 +283,12 @@ runs them in-process instead, continues past a failure so one break does not hid
 and returns an aggregate exit code. The old chain returned only the last suite's status, so
 any earlier failure was silently discarded.
 
-Most suites are idempotent — keep them that way by creating their own fixtures rather than
-mutating seeded state. **`smoke-test-rolling.ps1` is the exception**: it closes periods, so it
-consumes the seeded cycle's open periods and `exit 1`s once fewer than two remain. It needs a
-fresh `npm run db:reset` to run again, and in CI it reads as a failure rather than a skip.
+Every suite is idempotent — keep them that way by creating their own fixtures rather than
+mutating seeded state. `smoke-test-rolling.ps1` **used to be the exception**: it closed two of the
+seeded cycle's periods per run and `exit 1`d once fewer than two remained, so it ran about three
+times after a reset and then went red for a reason that was not a defect. It now provisions its own
+annual cycle each run. Closing a period is destructive by design, so a suite that exercises it must
+spend a cycle of its own rather than the one everything else depends on.
 
 **Four browser journeys drive a real browser.** `npm run test:ui:all` runs the lot; each is
 also a suite name for `scripts/run-e2e.mjs`. None are in the default `test:e2e` set, because a
