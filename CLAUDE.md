@@ -158,6 +158,20 @@ once will bite again; a check that fails the build will not.
   (`FY2024-P01` vs `FY2026-P01`); `periodIndex` does not, and nothing filtered on the key. History
   now lives on its own closed prior cycles, which is what an organisation actually has. Note the
   API already refused to import a prior-year actual into a cycle — only the seed could create it.
+- **Built is not the same as reachable, and `check:reachability` now asks.** The same defect
+  shape was found by hand eleven times: permissions guarding no route, endpoints no screen led
+  to, a seeded table no route read, columns nothing wrote, functions nothing called. Every one
+  passed every test, because tests ask "does this work when called" and none asks "does anything
+  call it". `npm run verify` now runs `scripts/check-reachability.mjs`: every permission guards a
+  route, every table has a writer, and the count of routes exercised by no test or suite is a
+  **ratchet** (currently 17 of 109) that fails the build in both directions — going up means a
+  route was added untested, going down means the number needs lowering. Exceptions are declared
+  with a reason and double as the register of deliberate decisions.
+  **Calibrate any addition to it before committing.** The first draft reported 22 dead exports
+  and an unwritten table, nearly all noise: `shared/index.ts` is `export *` so everything there
+  is public API, and `BudgetLinePeriod` is written through a nested `periods: { create }` whose
+  relation name matches neither the model nor its client property. Those rules were dropped
+  rather than shipped loud — a check that cries wolf gets switched off.
 - **A permission that guards nothing passes every consistency check.**
   `docs/user-manual.md`'s matrix is machine-checked against `rbac.ts`, and four permissions sat
   in both for months while no route required any of them — the check compares two matrices, and
