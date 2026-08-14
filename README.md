@@ -31,6 +31,24 @@ Open **http://localhost:8080**.
 cycle with four business units, two years of seasonal actuals, a priced pursuit and a risk
 register — so every screen has something real on it immediately.
 
+### Start Menu shortcuts (Windows)
+
+For demonstrations, where the last thing you want is to be typing Docker commands with somebody
+watching:
+
+```bash
+npm run start-menu:install     # adds two entries to your Start Menu
+npm run start-menu:uninstall   # removes them
+```
+
+Then press the Windows key and type "Financial". **Financial Forecasting Platform** starts the
+stack and opens a browser once the API reports itself ready — starting Docker Desktop first if it
+is not running, and waiting rather than opening a page whose first request fails. **Stop Financial
+Forecasting** stops it and keeps the data, so starting again resumes where you left off.
+
+Per-user, so it needs no administrator and writes nothing outside your profile. The shortcuts
+point at this directory by absolute path; if the repository moves, run the install again.
+
 ### Local development (without containers)
 
 ```bash
