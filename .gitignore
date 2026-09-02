@@ -33,3 +33,7 @@ docker/certs/*.pem
 docker/tls/*.crt
 docker/tls/*.key
 docker/tls/*.pem
+
+# Workspace material, never distributed
+.internal/
+Claude_Cowork_AI_Engineer_Package/
