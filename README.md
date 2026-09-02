@@ -1,5 +1,8 @@
 # Financial Forecasting Platform
 
+> **© 2026 Trevor Potgieter. All rights reserved.** Published for portfolio review — see [LICENSE](LICENSE).
+
+
 Support for the entire budgeting process — from forecasting the budget and preparing the
 budget plan, through to reporting on expenditure against it.
 
